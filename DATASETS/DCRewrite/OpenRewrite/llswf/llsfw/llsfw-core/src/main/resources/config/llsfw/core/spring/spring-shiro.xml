@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:util="http://www.springframework.org/schema/util" xmlns:aop="http://www.springframework.org/schema/aop" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+       http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+	<!-- 凭证验证 -->
+	<bean id="credentialsMatcher" class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">
+		<property name="hashAlgorithmName" value="${security.hashAlgorithmName}" />
+		<property name="hashIterations" value="${security.hashIterations}" />
+	</bean>
+
+	<!-- realm -->
+	<bean id="realm" class="${security.realm}">
+		<property name="cachingEnabled" value="${security.cachingEnabled}" />
+		<property name="credentialsMatcher" ref="credentialsMatcher" />
+	</bean>
+
+	<!-- session管理器 -->
+	<bean id="sessionManager" class="org.apache.shiro.web.session.mgt.DefaultWebSessionManager">
+		<property name="globalSessionTimeout" value="${security.globalSessionTimeout}" />
+		<property name="sessionDAO" ref="sessionDAO" />
+	</bean>
+
+	<!-- sessionDao -->
+	<bean id="sessionDAO" class="com.llsfw.core.security.session.redis.RedisSessionDAO">
+		<property name="dbManager" ref="dbManager" />
+		<property name="keyPrefix" value="${security.sessionDaoKeyPrefix}" />
+	</bean>
+
+	<!-- 缓存管理器 -->
+	<bean id="cacheManager" class="com.llsfw.core.security.session.redis.RedisCacheManager">
+		<property name="dbManager" ref="dbManager" />
+		<property name="keyPrefix" value="${security.cacheManagerKeyPrefix}" />
+	</bean>
+
+	<!-- 数据管理器 -->
+	<bean id="dbManager" class="com.llsfw.core.security.session.redis.DbManager">
+		<property name="redisTemplate" ref="redisTemplate" />
+	</bean>
+
+	<!-- 基于Form表单的身份验证过滤器 -->
+	<bean id="formAuthenticationFilter" class="org.apache.shiro.web.filter.authc.FormAuthenticationFilter">
+		<property name="usernameParam" value="username" />
+		<property name="passwordParam" value="password" />
+	</bean>
+
+	<!-- shiro的bean生命周期 -->
+	<bean id="lifecycleBeanPostProcessor" class="org.apache.shiro.spring.LifecycleBeanPostProcessor" />
+
+	<!-- AOP式方法级权限检查 -->
+	<bean class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator" depends-on="lifecycleBeanPostProcessor">
+		<property name="proxyTargetClass" value="true" />
+	</bean>
+
+</beans>
