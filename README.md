@@ -14,7 +14,7 @@ This paper presents DeepMig as a novel approach to the coupled migration of TPLs
 
 This repository is organized as follows:
 
-* The [tools](./tools) directory contains the implementation of the different tools we developed:
+* The involved tools include:
 	* [DeepMig](./TOOLS/DeepMig.py): The python implementation of DeepMig
 	* [Code exctractor](https://github.com/MDEGroup/aethereal/): A set of tools written in Java and [Rascal](https://www.rascal-mpl.org/) that are used to (i) transform raw Java source and binary code into DeepMig-processable data (ii) navigate the Maven Dependency Graph.
 	* [OpenRewrite](https://docs.openrewrite.org/): The _OpenRewrite_ baseline for code migration.
