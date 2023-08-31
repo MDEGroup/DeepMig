@@ -21,6 +21,7 @@ This repository is organized as follows:
 * The [dataset](./dataset) directory contains the datasets described in the paper that we use to evaluate FOCUS:
 
 	* [DL](./dataset/DL): meta-data consisting of 122,340 software projects relying on 35,543 TPLs,
-	* [DC](./dataset/DC): meta-data consisting of 3,699 update pairs counting 16,850 migration pairs,
-	* [DCR](./dataset/DCRewrite): meta-data extrated from the 29 mined clients,	* [DCS](./dataset/DCSMALL): it is extracted from DC consisting of 3,953 pairs where each definition occurs in at least 10 extracted clients.
+	* [DCR](./dataset/DCRewrite): meta-data extrated from the 29 mined clients,
+ 	* [DC](./dataset/DC): meta-data consisting of 3,699 update pairs counting 16,850 migration pairs,
+   	* [DCS](./dataset/DCSMALL): it is extracted from DC consisting of 3,953 pairs where each definition occurs in at least 10 extracted clients.
 * [Supporting materials](./Materials)
