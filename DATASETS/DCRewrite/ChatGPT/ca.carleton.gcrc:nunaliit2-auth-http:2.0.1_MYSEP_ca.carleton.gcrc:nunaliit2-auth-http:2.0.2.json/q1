@@ -1,0 +1,259 @@
+To migrate from Log4j to SLF4J, you need to replace the Log4j-specific imports and logger initialization with their SLF4J equivalents. Here are the specific changes highlighted:
+
+Original Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.auth.cookie;
+
+import ca.carleton.gcrc.auth.common.AuthHttpServletRequest;
+import ca.carleton.gcrc.auth.common.AuthenticationUtils;
+import ca.carleton.gcrc.auth.common.User;
+import ca.carleton.gcrc.auth.common.UserRepository;
+import ca.carleton.gcrc.auth.common.UserRepositorySingleton;
+import ca.carleton.gcrc.auth.cookie.impl.CookieAuthentication;
+import java.io.IOException;
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import org.apache.log4j.Logger;
+
+public class AuthFilter implements Filter {
+  private static final String defaultRealm = "olkit";
+  
+  private static final String defaultCookieName = "olkit-auth";
+  
+  protected final Logger logger = Logger.getLogger(getClass());
+  
+  private UserRepository userRepository;
+  
+  private String realm = "olkit";
+  
+  private String cookieName = "olkit-auth";
+  
+  private boolean allowAnonymous = false;
+  
+  private boolean allowUser = false;
+  
+  private boolean allowAdmin = true;
+  
+  public void init(FilterConfig config) throws ServletException {
+    this.logger.info("Start configuring filter");
+    this.userRepository = UserRepositorySingleton.getSingleton();
+    String value = config.getInitParameter("anonymous");
+    if (null != value) {
+      int intValue = Integer.parseInt(value);
+      this.allowAnonymous = (0 != intValue);
+    } 
+    value = config.getInitParameter("user");
+    if (null != value) {
+      int intValue = Integer.parseInt(value);
+      this.allowUser = (0 != intValue);
+    } 
+    value = config.getInitParameter("admin");
+    if (null != value) {
+      int intValue = Integer.parseInt(value);
+      this.allowAdmin = (0 != intValue);
+    } 
+    value = config.getInitParameter("realm");
+    if (null != value)
+      this.realm = value; 
+    value = config.getInitParameter("cookie");
+    if (null != value)
+      this.cookieName = value; 
+    this.logger.info("End configuring filter");
+  }
+  
+  public void destroy() {
+    if (null != this.userRepository)
+      this.userRepository.destroy(); 
+  }
+  
+  public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain chain) throws IOException, ServletException {
+    if (false == servletRequest instanceof HttpServletRequest || false == servletResponse instanceof HttpServletResponse) {
+      this.logger.info("Skip filtering request because it is not HTTP");
+      chain.doFilter(servletRequest, servletResponse);
+    } 
+    HttpServletRequest request = (HttpServletRequest)servletRequest;
+    HttpServletResponse response = (HttpServletResponse)servletResponse;
+    if (request instanceof AuthHttpServletRequest) {
+      try {
+        User user = AuthenticationUtils.getUserFromRequest(request);
+        checkAndDispatch(user, request, response, chain);
+      } catch (Exception e) {
+        throw new ServletException("Error while filtering AuthHttpServletRequest", e);
+      } 
+    } else {
+      try {
+        User user = null;
+        Cookie cookie = getCookieFromRequest(request);
+        if (null != cookie)
+          user = CookieAuthentication.verifyCookieString(this.userRepository, cookie.getValue()); 
+        if (null == user) {
+          AuthenticationUtils.sendAuthRequiredError(response, this.realm);
+          return;
+        } 
+        this.logger.info("user: " + user);
+        String userJson = AuthenticationUtils.userToCookieString(true, user);
+        Cookie cookie1 = new Cookie("nunaliit-auth", userJson);
+        cookie1.setPath("/");
+        response.addCookie(cookie1);
+        checkAndDispatch(user, (HttpServletRequest)new AuthHttpServletRequest(request, user), response, chain);
+      } catch (Exception e) {
+        throw new ServletException("Error while filtering HttpServletRequest", e);
+      } 
+    } 
+  }
+  
+  private void checkAndDispatch(User user, HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
+    boolean allowed = false;
+    if (this.allowAnonymous && user.isAnonymous()) {
+      allowed = true;
+    } else if (this.allowAdmin && user.isAdmin()) {
+      allowed = true;
+    } else if (this.allowUser && !user.isAdmin() && !user.isAnonymous()) {
+      allowed = true;
+    } 
+    if (allowed) {
+      chain.doFilter((ServletRequest)request, (ServletResponse)response);
+    } else {
+      this.logger.info("User denied access (" + user + ")");
+      AuthenticationUtils.sendAuthRequiredError(response, this.realm);
+    } 
+  }
+  
+  private Cookie getCookieFromRequest(HttpServletRequest request) {
+    Cookie[] cookies = request.getCookies();
+    Cookie authCookie = null;
+    for (Cookie cookie : cookies) {
+      if (this.cookieName.equals(cookie.getName())) {
+        authCookie = cookie;
+        break;
+      } 
+    } 
+    return authCookie;
+  }
+}
+Updated Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.auth.cookie;
+
+import ca.carleton.gcrc.auth.common.AuthHttpServletRequest;
+import ca.carleton.gcrc.auth.common.AuthenticationUtils;
+import ca.carleton.gcrc.auth.common.User;
+import ca.carleton.gcrc.auth.common.UserRepository;
+import ca.carleton.gcrc.auth.common.UserRepositorySingleton;
+import ca.carleton.gcrc.auth.cookie.impl.CookieAuthentication;
+import java.io.IOException;
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+// **Change from Log4j to SLF4J**
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class AuthFilter implements Filter {
+  private static final String defaultRealm = "olkit";
+  
+  private static final String defaultCookieName = "olkit-auth";
+  
+  // **Change from Log4j to SLF4J**
+  // protected final Logger logger = Logger.getLogger(getClass());
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private UserRepository userRepository;
+  
+  private String realm = "olkit";
+  
+  private String cookieName = "olkit-auth";
+  
+  private boolean allowAnonymous = false;
+  
+  private boolean allowUser = false;
+  
+  private boolean allowAdmin = true;
+  
+  public void init(FilterConfig config) throws ServletException {
+    this.logger.info("Start configuring filter");
+    this.userRepository = UserRepositorySingleton.getSingleton();
+    String value = config.getInitParameter("anonymous");
+    if (null != value) {
+      int intValue = Integer.parseInt(value);
+      this.allowAnonymous = (0 != intValue);
+    } 
+    value = config.getInitParameter("user");
+    if (null != value) {
+      int intValue = Integer.parseInt(value);
+      this.allowUser = (0 != intValue);
+    } 
+    value = config.getInitParameter("admin");
+    if (null != value) {
+      int intValue = Integer.parseInt(value);
+      this.allowAdmin = (0 != intValue);
+    } 
+    value = config.getInitParameter("realm");
+    if (null != value)
+      this.realm = value; 
+    value = config.getInitParameter("cookie");
+    if (null != value)
+      this.cookieName = value; 
+    this.logger.info("End configuring filter");
+  }
+  
+  public void destroy() {
+    if (null != this.userRepository)
+      this.userRepository.destroy(); 
+  }
+  
+  public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain chain) throws IOException, ServletException {
+    if (false == servletRequest instanceof HttpServletRequest || false == servletResponse instanceof HttpServletResponse) {
+      this.logger.info("Skip filtering request because it is not HTTP");
+      chain.doFilter(servletRequest, servletResponse);
+    } 
+    HttpServletRequest request = (HttpServletRequest)servletRequest;
+    HttpServletResponse response = (HttpServletResponse)servletResponse;
+    if (request instanceof AuthHttpServletRequest) {
+      try {
+        User user = AuthenticationUtils.getUserFromRequest(request);
+        checkAndDispatch(user, request, response, chain);
+      } catch (Exception e) {
+        throw new ServletException("Error while filtering AuthHttpServletRequest", e);
+      } 
+    } else {
+      try {
+        User user = null;
+        Cookie cookie = getCookieFromRequest(request);
+        if (null != cookie)
+          user = CookieAuthentication.verifyCookieString(this.userRepository, cookie.getValue()); 
+        if (null == user) {
+          AuthenticationUtils.sendAuthRequiredError(response, this.realm);
+          return;
+        } 
+        this.logger.info("user: " + user);
+        String userJson = AuthenticationUtils.userToCookieString(true, user);
+        Cookie cookie1 = new Cookie("nunaliit-auth", userJson);
+        cookie1.setPath("/");
+        response.addCookie(cookie1);
+        checkAndDispatch(user, (HttpServletRequest)new AuthHttpServletRequest(request, user), response, chain);
+      } catch (Exception e) {
+        throw new ServletException("Error while filtering HttpServletRequest", e);
+      } 
+    } 
+  }
+  
+ 

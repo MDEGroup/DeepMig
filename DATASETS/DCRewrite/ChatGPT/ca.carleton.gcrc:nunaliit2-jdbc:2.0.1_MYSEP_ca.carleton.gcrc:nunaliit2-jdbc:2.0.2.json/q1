@@ -1,0 +1,145 @@
+To migrate from Log4j to SLF4J, you need to replace the Log4j-specific imports and logger initialization with their SLF4J equivalents. Here are the specific changes highlighted:
+
+Original Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.jdbc;
+
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Properties;
+import javax.servlet.ServletContext;
+import javax.servlet.ServletException;
+// Change from Log4j to SLF4J
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class JdbcConnections {
+  public static final String JDBC_SERVLET_ATTRIB_NAME = "JdbcConnections";
+  
+  public static final String PROPERTIES_SERVLET_ATTRIB_NAME = "JdbcConfigProperties";
+  
+  // Change from Log4j to SLF4J
+  // protected final Logger logger = Logger.getLogger(getClass());
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  public static JdbcConnections connectionsFromServletContext(ServletContext servletContext) throws ServletException {
+    Object jdbcConnectionsObj = servletContext.getAttribute("JdbcConnections");
+    if (null != jdbcConnectionsObj && jdbcConnectionsObj instanceof JdbcConnections)
+      return (JdbcConnections)jdbcConnectionsObj; 
+    synchronized (servletContext) {
+      JdbcConnections connections = new JdbcConnections(servletContext);
+      servletContext.setAttribute("JdbcConnections", connections);
+      return connections;
+    } 
+  }
+  
+  private Map<String, ConnectionInfo> nameToInfo = new HashMap<String, ConnectionInfo>();
+  
+  private Map<String, Connection> nameToConnection = new HashMap<String, Connection>();
+  
+  public JdbcConnections(ServletContext servletContext) throws ServletException {
+    Properties props = new Properties();
+    if (null != servletContext) {
+      Object propertiesObj = servletContext.getAttribute("JdbcConfigProperties");
+      if (null != propertiesObj && propertiesObj instanceof Properties)
+        props = (Properties)propertiesObj; 
+    } 
+    readProperties(props);
+  }
+  
+  public JdbcConnections(Properties props) {
+    readProperties(props);
+  }
+  
+  private synchronized void readProperties(Properties props) {
+    Iterator<Object> it = props.keySet().iterator();
+    while (it.hasNext()) {
+      Object keyObj = it.next();
+      if (keyObj instanceof String) {
+        String key = (String)keyObj;
+        String value = props.getProperty(key);
+        if (null != value) {
+          String connectionName = null;
+          if (key.equals("default")) {
+            connectionName = "default";
+          } else if (key.startsWith("jdbc.connection.")) {
+            connectionName = key.substring("jdbc.connection.".length());
+          } 
+          if (null != connectionName) {
+            String[] components = value.split("\\|");
+            if (components.length >= 4) {
+              ConnectionInfo def = new ConnectionInfo();
+              def.setJdbcClass(components[0].trim());
+              def.setConnectionString(components[1].trim());
+              def.setUserName(components[2].trim());
+              def.setPassword(components[3].trim());
+              this.nameToInfo.put(connectionName, def);
+              this.logger.info("" + connectionName + " class=" + def.getJdbcClass() + " conn=" + def.getConnectionString() + " name=" + def.getUserName());
+              if (false == this.nameToInfo.containsKey(null))
+                this.nameToInfo.put(null, def); 
+            } 
+          } 
+        } 
+      } 
+    } 
+  }
+  
+  public synchronized Connection getDb() throws Exception {
+    return getDb(null);
+  }
+  
+  public synchronized Connection getDb(String db) throws Exception {
+    Connection con = null;
+    if (this.nameToConnection.containsKey(db)) {
+      con = this.nameToConnection.get(db);
+    } else {
+      ConnectionInfo info = this.nameToInfo.get(db);
+      if (null == info)
+        throw new Exception("No information provided for database named: " + db); 
+      try {
+        Class.forName(info.getJdbcClass());
+        con = DriverManager.getConnection(info.getConnectionString(), info.getUserName(), info.getPassword());
+        DatabaseMetaData dbmd = con.getMetaData();
+        this.logger.info("Connection to " + dbmd.getDatabaseProductName() + " " + dbmd.getDatabaseProductVersion() + " successful.\n");
+        this.nameToConnection.put(db, con);
+      } catch (Exception e) {
+        throw new Exception("Couldn't get db connection: " + db, e);
+      } 
+    } 
+    return con;
+  }
+  
+  public synchronized void closeAllConnections() {
+    try {
+      Map<String, Connection> temp = this.nameToConnection;
+      this.nameToConnection = new HashMap<String, Connection>();
+      Iterator<Connection> conIter = temp.values().iterator();
+      while (conIter.hasNext()) {
+        Connection con = conIter.next();
+        con.close();
+      } 
+    } catch (SQLException ignored) {}
+  }
+}
+Highlighted Changes:
+
+Import the SLF4J logger:
+
+java
+Copia codice
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+Replace the Log4j logger initialization with SLF4J:
+
+java
+Copia codice
+protected final Logger logger = LoggerFactory.getLogger(getClass());
+That's all the necessary changes to migrate this class from Log4j to SLF4J. The rest of the logging code can remain unchanged because SLF4J provides a similar API to Log4j.

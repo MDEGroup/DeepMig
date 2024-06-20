@@ -1,0 +1,285 @@
+o migrate the given class from Log4j to SLF4J, you need to replace the Log4j-specific imports and logger initialization with their SLF4J equivalents. Here are the specific changes highlighted with comments:
+
+Original Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.onUpload;
+
+import ca.carleton.gcrc.contributions.ContributionComet;
+import ca.carleton.gcrc.contributions.Contributions;
+import ca.carleton.gcrc.olkit.multimedia.converter.MultimediaConversionRequest;
+import ca.carleton.gcrc.olkit.multimedia.converter.MultimediaConverter;
+import ca.carleton.gcrc.olkit.multimedia.converter.impl.MultimediaConverterImpl;
+import ca.carleton.gcrc.olkit.multimedia.file.SystemFile;
+import ca.carleton.gcrc.progress.ProgressInfo;
+import ca.carleton.gcrc.progress.ProgressTracker;
+import java.security.Principal;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+// Import Log4j
+import org.apache.log4j.Logger;
+
+public class ProcessFileThread extends Thread {
+  // Initialize Log4j logger
+  protected final Logger logger = Logger.getLogger(getClass());
+  
+  private UploadedFileInfo fileInfo;
+  
+  private String progressId;
+  
+  private Map<String, List<String>> parameters;
+  
+  private ContributionComet cometChannel;
+  
+  private Principal userPrincipal;
+  
+  private Contributions contributions;
+  
+  private ProgressTracker progressTracker;
+  
+  private MultimediaConverter mmConverter = (MultimediaConverter)new MultimediaConverterImpl();
+  
+  public ProcessFileThread(UploadedFileInfo fileInfo, String parentProgressId, Map<String, List<String>> parameters, ContributionComet cometChannel, Principal userPrincipal, Contributions c, ProgressTracker progressTracker) {
+    this.fileInfo = fileInfo;
+    this.parameters = parameters;
+    this.cometChannel = cometChannel;
+    this.userPrincipal = userPrincipal;
+    this.contributions = c;
+    this.progressTracker = progressTracker;
+    this.progressId = progressTracker.createIdentifier();
+    String desc = "Process file " + fileInfo.getOriginalFilename();
+    progressTracker.initProgress(this.progressId, desc, 102L);
+    ProgressInfo info = progressTracker.getProgress(this.progressId);
+    if (null != parentProgressId)
+      progressTracker.addProgressChain(parentProgressId, info); 
+  }
+  
+  public String getProgressId() {
+    return this.progressId;
+  }
+  
+  public void run() {
+    try {
+      SystemFile sf = SystemFile.getSystemFile(this.fileInfo.getUploadedFile());
+      this.fileInfo.setMimeType(sf.getMimeType());
+      this.fileInfo.setMimeEncoding(sf.getMimeEncoding());
+      String mimeType = sf.getMimeType();
+      this.logger.info("Processing: " + this.fileInfo.getOriginalFilename() + " with mimeType: " + mimeType);
+      if (null == mimeType) {
+        this.fileInfo.setConvertedFile(this.fileInfo.getUploadedFile());
+      } else if (mimeType.contains("video")) {
+        convertVideo();
+      } else if (mimeType.contains("audio")) {
+        convertAudio();
+      } else if (mimeType.contains("image")) {
+        convertImage();
+      } else {
+        this.fileInfo.setConvertedFile(this.fileInfo.getUploadedFile());
+      } 
+      ContributionHandler t = new ContributionHandler(this.parameters, this.userPrincipal);
+      List<String> vec = this.parameters.get("isUpdate");
+      if (null == vec)
+        throw new Exception("Required isUpdate parameter undefined."); 
+      if ("true".equalsIgnoreCase(vec.get(0))) {
+        t.performDatabaseUpdate(this.fileInfo, this.contributions);
+      } else {
+        t.performDatabaseInsert(this.fileInfo, this.contributions);
+      } 
+      Map<String, String> data = new HashMap<String, String>();
+      data.put("file", this.fileInfo.getOriginalFilename());
+      data.put("mime-type", this.fileInfo.getMimeType());
+      data.put("mime-encoding", this.fileInfo.getMimeEncoding());
+      if (this.parameters.containsKey("place_id") && ((List)this.parameters.get("place_id")).size() > 0)
+        data.put("place_id", ((List<String>)this.parameters.get("place_id")).get(0)); 
+      this.progressTracker.updateProgressData(this.progressId, data);
+      this.progressTracker.completeProgress(this.progressId, null);
+      if (null != this.cometChannel && this.parameters.containsKey("place_id") && ((List)this.parameters.get("place_id")).size() > 0)
+        this.cometChannel.reportNewContribution(((List<String>)this.parameters.get("place_id")).get(0), null); 
+    } catch (Exception e) {
+      e.printStackTrace();
+      this.progressTracker.completeProgress(this.progressId, e.getMessage());
+    } 
+  }
+  
+  private void convertVideo() throws Exception {
+    MultimediaConversionRequest request = new MultimediaConversionRequest();
+    request.setInFile(this.fileInfo.getUploadedFile());
+    request.setThumbnailRequested(true);
+    request.setProgress(new MultimediaProgressAdaptor(this.progressId, this.progressTracker));
+    this.mmConverter.convertVideo(request);
+    this.fileInfo.setConvertedFile(request.getOutFile());
+  }
+  
+  private void convertAudio() throws Exception {
+    MultimediaConversionRequest request = new MultimediaConversionRequest();
+    request.setInFile(this.fileInfo.getUploadedFile());
+    request.setProgress(new MultimediaProgressAdaptor(this.progressId, this.progressTracker));
+    this.mmConverter.convertAudio(request);
+    this.fileInfo.setConvertedFile(request.getOutFile());
+  }
+  
+  private void convertImage() throws Exception {
+    MultimediaConversionRequest request = new MultimediaConversionRequest();
+    request.setInFile(this.fileInfo.getUploadedFile());
+    request.setThumbnailRequested(true);
+    request.setProgress(new MultimediaProgressAdaptor(this.progressId, this.progressTracker));
+    this.mmConverter.convertImage(request);
+    this.fileInfo.setConvertedFile(request.getOutFile());
+  }
+}
+Highlighted Changes:
+
+Import the SLF4J logger:
+
+java
+Copia codice
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+Replace the Log4j logger initialization with SLF4J:
+
+java
+Copia codice
+// protected final Logger logger = Logger.getLogger(getClass());
+protected final Logger logger = LoggerFactory.getLogger(getClass());
+Updated Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.onUpload;
+
+import ca.carleton.gcrc.contributions.ContributionComet;
+import ca.carleton.gcrc.contributions.Contributions;
+import ca.carleton.gcrc.olkit.multimedia.converter.MultimediaConversionRequest;
+import ca.carleton.gcrc.olkit.multimedia.converter.MultimediaConverter;
+import ca.carleton.gcrc.olkit.multimedia.converter.impl.MultimediaConverterImpl;
+import ca.carleton.gcrc.olkit.multimedia.file.SystemFile;
+import ca.carleton.gcrc.progress.ProgressInfo;
+import ca.carleton.gcrc.progress.ProgressTracker;
+import java.security.Principal;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+// Import SLF4J
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ProcessFileThread extends Thread {
+  // Initialize SLF4J logger
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private UploadedFileInfo fileInfo;
+  
+  private String progressId;
+  
+  private Map<String, List<String>> parameters;
+  
+  private ContributionComet cometChannel;
+  
+  private Principal userPrincipal;
+  
+  private Contributions contributions;
+  
+  private ProgressTracker progressTracker;
+  
+  private MultimediaConverter mmConverter = (MultimediaConverter)new MultimediaConverterImpl();
+  
+  public ProcessFileThread(UploadedFileInfo fileInfo, String parentProgressId, Map<String, List<String>> parameters, ContributionComet cometChannel, Principal userPrincipal, Contributions c, ProgressTracker progressTracker) {
+    this.fileInfo = fileInfo;
+    this.parameters = parameters;
+    this.cometChannel = cometChannel;
+    this.userPrincipal = userPrincipal;
+    this.contributions = c;
+    this.progressTracker = progressTracker;
+    this.progressId = progressTracker.createIdentifier();
+    String desc = "Process file " + fileInfo.getOriginalFilename();
+    progressTracker.initProgress(this.progressId, desc, 102L);
+    ProgressInfo info = progressTracker.getProgress(this.progressId);
+    if (null != parentProgressId)
+      progressTracker.addProgressChain(parentProgressId, info); 
+  }
+  
+  public String getProgressId() {
+    return this.progressId;
+  }
+  
+  public void run() {
+    try {
+      SystemFile sf = SystemFile.getSystemFile(this.fileInfo.getUploadedFile());
+      this.fileInfo.setMimeType(sf.getMimeType());
+      this.fileInfo.setMimeEncoding(sf.getMimeEncoding());
+      String mimeType = sf.getMimeType();
+      this.logger.info("Processing: " + this.fileInfo.getOriginalFilename() + " with mimeType: " + mimeType);
+      if (null == mimeType) {
+        this.fileInfo.setConvertedFile(this.fileInfo.getUploadedFile());
+      } else if (mimeType.contains("video")) {
+        convertVideo();
+      } else if (mimeType.contains("audio")) {
+        convertAudio();
+      } else if (mimeType.contains("image")) {
+        convertImage();
+      } else {
+        this.fileInfo.setConvertedFile(this.fileInfo.getUploadedFile());
+      } 
+      ContributionHandler t = new ContributionHandler(this.parameters, this.userPrincipal);
+      List<String> vec = this.parameters.get("isUpdate");
+      if (null == vec)
+        throw new Exception("Required isUpdate parameter undefined."); 
+      if ("true".equalsIgnoreCase(vec.get(0))) {
+        t.performDatabaseUpdate(this.fileInfo, this.contributions);
+      } else {
+        t.performDatabaseInsert(this.fileInfo, this.contributions);
+      } 
+      Map<String, String> data = new HashMap<String, String>();
+      data.put("file", this.fileInfo.getOriginalFilename());
+      data.put("mime-type", this.fileInfo.getMimeType());
+      data.put("mime-encoding", this.fileInfo.getMimeEncoding());
+      if (this.parameters.containsKey("place_id") && ((List)this.parameters.get("place_id")).size() > 0)
+        data.put("place_id", ((List<String>)this.parameters.get("place_id")).get(0)); 
+      this.progressTracker.updateProgressData(this.progressId, data);
+      this.progressTracker.completeProgress(this.progressId, null);
+      if (null != this.cometChannel && this.parameters.containsKey("place_id") && ((List)this.parameters.get("place_id")).size() > 0)
+        this.cometChannel.reportNewContribution(((List<String>)this.parameters.get("place_id")).get(0), null); 
+    } catch (Exception e) {
+      e.printStackTrace();
+      this.progressTracker.completeProgress(this.progressId, e.getMessage());
+    } 
+  }
+  
+  private void convertVideo() throws Exception {
+    MultimediaConversionRequest request = new MultimediaConversionRequest();
+    request.setInFile(this.fileInfo.getUploadedFile());
+    request.setThumbnailRequested(true);
+    request.setProgress(new MultimediaProgressAdaptor(this.progressId, this.progressTracker));
+    this.mmConverter.convertVideo(request);
+    this.fileInfo.setConvertedFile(request.getOutFile());
+  }
+  
+  private void convertAudio() throws Exception {
+    MultimediaConversionRequest request = new MultimediaConversionRequest();
+    request.setInFile(this.fileInfo.getUploadedFile());
+    request.setProgress(new MultimediaProgressAdaptor(this.progressId, this.progressTracker));
+    this.mmConverter.convertAudio(request);
+    this.fileInfo.setConvertedFile(request.getOutFile());
+  }
+  
+  private void convertImage() throws Exception {
+    MultimediaConversionRequest request = new MultimediaConversionRequest();
+    request.setInFile(this.fileInfo.getUploadedFile());
+    request.setThumbnailRequested(true);
+    request.setProgress(new MultimediaProgressAdaptor(this.progressId, this.progressTracker));
+    this.mmConverter.convertImage(request);
+    this.fileInfo.setConvertedFile(request.getOutFile());
+  }
+}
+Summary of Changes:
+
+Imported SLF4J Logger and LoggerFactory.
+Replaced the Log4j logger initialization with SLF4J's LoggerFactory.getLogger.
+Adjusted the type of the logger variable to org.slf4j.Logger.
+
+
+
+
+

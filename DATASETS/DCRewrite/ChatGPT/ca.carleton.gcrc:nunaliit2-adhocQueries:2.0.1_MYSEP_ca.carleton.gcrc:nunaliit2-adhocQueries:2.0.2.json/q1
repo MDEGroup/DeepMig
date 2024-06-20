@@ -1,0 +1,69 @@
+To migrate from Log4j to SLF4J, you need to update the import statements, logger initialization, and logging method calls. Below are the changes highlighted in the given class:
+
+java
+Copia codice
+package ca.carleton.gcrc.AdhocQueries;
+
+import ca.carleton.gcrc.dbSec.ColumnData;
+import ca.carleton.gcrc.dbSec.impl.ColumnDataUtils;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+// Update import statement to use SLF4J
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+public class AdhocQueries {
+  // Update logger initialization to use SLF4J
+  // private final Logger logger = Logger.getLogger(getClass());
+  private final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private Connection connection;
+  
+  public AdhocQueries(Connection c) {
+    this.connection = c;
+  }
+  
+  public JSONObject performAdhocQueryWithArgs(String sqlStatement, String args, int argsExpected) throws Exception {
+    // Update logging method call to use SLF4J
+    // this.logger.info("Executing adhoc query: " + sqlStatement + " for arguments: " + args);
+    this.logger.info("Executing adhoc query: {} for arguments: {}", sqlStatement, args);
+    String[] splitArgs = args.split(",");
+    if (argsExpected == 0 && (splitArgs.length > 1 || (splitArgs.length == 1 && !splitArgs[0].isEmpty())))
+      throw new Exception("Expected NO arguments but received at least one non-empty arg."); 
+    if (argsExpected == 1 && splitArgs.length == 1 && splitArgs[0].isEmpty())
+      throw new Exception("Expected one arg but received empty string."); 
+    if (argsExpected >= 1 && splitArgs.length != argsExpected)
+      throw new Exception("Expected " + argsExpected + " args but got " + splitArgs.length); 
+    PreparedStatement stmt = this.connection.prepareStatement(sqlStatement);
+    int index = 1;
+    for (int loop = 0; loop < argsExpected; loop++) {
+      ColumnDataUtils.writeToPreparedStatement(stmt, index, splitArgs[loop], ColumnData.Type.INTEGER);
+      index++;
+    } 
+    JSONArray array = ColumnDataUtils.executeStatementToJson(stmt);
+    JSONObject result = new JSONObject();
+    result.put("results", array);
+    return result;
+  }
+}
+Summary of Changes:
+Import Statements:
+
+Replace import org.apache.log4j.Logger; with import org.slf4j.Logger; and import org.slf4j.LoggerFactory;.
+Logger Initialization:
+
+Replace private final Logger logger = Logger.getLogger(getClass()); with private final Logger logger = LoggerFactory.getLogger(getClass());.
+Logging Method Calls:
+
+Update logging method calls to use SLF4J. For example:
+this.logger.info("Executing adhoc query: " + sqlStatement + " for arguments: " + args); is changed to this.logger.info("Executing adhoc query: {} for arguments: {}", sqlStatement, args);.
+These changes will migrate the logging from Log4j to SLF4J.
+
+
+
+
+
+

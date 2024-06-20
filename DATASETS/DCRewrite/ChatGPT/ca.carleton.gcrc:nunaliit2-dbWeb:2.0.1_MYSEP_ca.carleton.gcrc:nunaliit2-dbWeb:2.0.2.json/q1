@@ -1,0 +1,409 @@
+To migrate from Log4j to SLF4J, you need to replace the Log4j-specific imports and logger initialization with their SLF4J equivalents. Here are the specific changes highlighted:
+
+Original Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.dbWeb;
+
+import ca.carleton.gcrc.auth.common.AuthenticationUtils;
+import ca.carleton.gcrc.auth.common.User;
+import ca.carleton.gcrc.dbSec.DbSecurity;
+import ca.carleton.gcrc.dbSec.DbTableAccess;
+import ca.carleton.gcrc.dbSec.Expression;
+import ca.carleton.gcrc.dbSec.FieldSelector;
+import ca.carleton.gcrc.dbSec.FieldSelectorCentroid;
+import ca.carleton.gcrc.dbSec.FieldSelectorColumn;
+import ca.carleton.gcrc.dbSec.FieldSelectorFunction;
+import ca.carleton.gcrc.dbSec.FieldSelectorScoreSubString;
+import ca.carleton.gcrc.dbSec.OrderSpecifier;
+import ca.carleton.gcrc.dbSec.RecordSelector;
+import ca.carleton.gcrc.dbSec.RecordSelectorComparison;
+import ca.carleton.gcrc.dbSec.RecordSelectorSearchString;
+import ca.carleton.gcrc.dbSec.TableSchema;
+import ca.carleton.gcrc.jdbc.JdbcConnections;
+import ca.carleton.gcrc.json.JSONSupport;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.sql.Connection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Vector;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+// **Change from Log4j to SLF4J**
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.json.JSONTokener;
+
+public class DbWebServlet extends HttpServlet {
+  private static final long serialVersionUID = 1L;
+  
+  private static Pattern patternEq = Pattern.compile("eq\\((.*)\\)(.*)");
+  
+  private static Pattern patternNe = Pattern.compile("ne\\((.*)\\)(.*)");
+  
+  private static Pattern patternGe = Pattern.compile("ge\\((.*)\\)(.*)");
+  
+  private static Pattern patternLe = Pattern.compile("le\\((.*)\\)(.*)");
+  
+  private static Pattern patternGt = Pattern.compile("gt\\((.*)\\)(.*)");
+  
+  private static Pattern patternLt = Pattern.compile("lt\\((.*)\\)(.*)");
+  
+  private static Pattern patternNull = Pattern.compile("null\\((.*)\\)");
+  
+  private static Pattern patternNotNull = Pattern.compile("notNull\\((.*)\\)");
+  
+  private static Pattern patternScore = Pattern.compile("score\\((.*)\\)(.*)");
+  
+  private static Pattern patternCentroid = Pattern.compile("centroid\\(([xy]),(.*)\\)");
+  
+  private static Pattern patternSum = Pattern.compile("sum\\((.*)\\)");
+  
+  private static Pattern patternMin = Pattern.compile("min\\((.*)\\)");
+  
+  private static Pattern patternMax = Pattern.compile("max\\((.*)\\)");
+  
+  private static Pattern patternSearchString = Pattern.compile("search\\((.*)\\)(.*)");
+  
+  private static Pattern patternOrderBy = Pattern.compile("([ad]),(.*)");
+  
+  // **Change from Log4j to SLF4J**
+  // protected final Logger logger = Logger.getLogger(getClass());
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private JdbcConnections connections = null;
+  
+  Connection connection = null;
+  
+  private DbSecurity dbSecurity = null;
+  
+  public void init(ServletConfig config) throws ServletException {
+    super.init(config);
+    try {
+      this.connections = JdbcConnections.connectionsFromServletContext(config.getServletContext());
+      this.connection = this.connections.getDb();
+    } catch (Exception e) {
+      throw new ServletException("Error while connecting to database", e);
+    } 
+    this.dbSecurity = new DbSecurity(this.connection);
+  }
+  
+  public void destroy() {
+    this.connections.closeAllConnections();
+  }
+  
+  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    doPost(request, response);
+  }
+  
+  protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    String[] paths = request.getRequestURI().split("/");
+    String path = paths[paths.length - 1];
+    this.logger.info(getClass().getName() + " " + path);
+    try {
+      if ("getSchema".equalsIgnoreCase(path)) {
+        performGetSchema(request, response);
+      } else if ("getCapabilities".equalsIgnoreCase(path)) {
+        performGetCapabilities(request, response);
+      } else if ("query".equalsIgnoreCase(path)) {
+        performQuery(request, response);
+      } else if ("queries".equalsIgnoreCase(path)) {
+        performMultiQuery(request, response);
+      } else if ("insert".equalsIgnoreCase(path)) {
+        performInsert(request, response);
+      } else if ("update".equalsIgnoreCase(path)) {
+        performUpdate(request, response);
+      } else if ("delete".equalsIgnoreCase(path)) {
+        performDelete(request, response);
+      } else {
+        throw new Exception("Unknown request: " + path);
+      } 
+    } catch (Exception e) {
+      this.logger.info("Error encountered while performing: " + path, e);
+      sendErrorResponse(response, e);
+    } 
+  }
+  
+  private void performGetSchema(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    User user = AuthenticationUtils.getUserFromRequest(request);
+    String tableName = getTableNameFromRequest(request);
+    DbTableAccess tableAccess = DbTableAccess.getAccess(this.dbSecurity, tableName, new DbUserAdaptor(user));
+    JSONObject schema = tableAccess.getSchema();
+    sendJsonResponse(response, schema);
+  }
+  
+  private void performGetCapabilities(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    User user = AuthenticationUtils.getUserFromRequest(request);
+    List<TableSchema> tableSchemas = this.dbSecurity.getAvailableTablesFromGroups(new DbUserAdaptor(user));
+    JSONArray array = new JSONArray();
+    for (TableSchema schema : tableSchemas)
+      array.put(schema.toJSON()); 
+    JSONObject capabilities = new JSONObject();
+    capabilities.put("capabilities", array);
+    sendJsonResponse(response, capabilities);
+  }
+  
+  private void performQuery(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    User user = AuthenticationUtils.getUserFromRequest(request);
+    String tableName = getTableNameFromRequest(request);
+    DbTableAccess tableAccess = DbTableAccess.getAccess(this.dbSecurity, tableName, new DbUserAdaptor(user));
+    List<RecordSelector> whereMap = getRecordSelectorsFromRequest(request);
+    List<FieldSelector> selectSpecifiers = getFieldSelectorsFromRequest(request);
+    List<FieldSelector> groupByColumnNames = getGroupByFromRequest(request);
+    List<OrderSpecifier> orderBy = getOrderByList(request);
+    Integer limit = getLimitFromRequest(request);
+    Integer offset = getOffsetFromRequest(request);
+    JSONArray queriedObjects = tableAccess.query(whereMap, selectSpecifiers, groupByColumnNames, orderBy, limit, offset);
+    JSONObject obj = new JSONObject();
+    obj.put("queried", queriedObjects);
+    sendJsonResponse(response, obj);
+  }
+  
+  private void performMultiQuery(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    User user = AuthenticationUtils.getUserFromRequest(request);
+    String[] queriesStrings = request.getParameterValues("queries");
+    if (1 != queriesStrings.length)
+      throw new Exception("Parameter 'queries' must be specified exactly once"); 
+    List<Query> queries = parseQueriesJson(queriesStrings[0]);
+    JSONObject result = new JSONObject();
+    Map<String, DbTableAccess> tableAccessCache = new HashMap<String, DbTableAccess>();
+    for (Query query : queries) {
+      String tableName = query.getTableName();
+      List<RecordSelector> whereMap = query.getWhereExpressions();
+      List<FieldSelector> fieldSelectors = query.getFieldSelectors();
+      List<FieldSelector> groupByColumnNames = query.getGroupByColumnNames();
+      List<OrderSpecifier> orderSpecifiers = query.getOrderBySpecifiers();
+      Integer limit = query.getLimit();
+      Integer offset = query.getOffset();
+      DbTableAccess tableAccess = tableAccessCache.get(tableName);
+      if (null == tableAccess) {
+        tableAccess = DbTableAccess.getAccess(this.dbSecurity, tableName, new DbUserAdaptor(user));
+        tableAccessCache.put(tableName, tableAccess);
+      } 
+      try {
+        JSONArray queriedObjects = tableAccess.query(whereMap, fieldSelectors, groupByColumnNames, orderSpecifiers, limit, offset);
+        result.put(query.getQueryKey(), queriedObjects);
+      } catch (Exception e) {
+        result.put(query.getQueryKey(), errorToJson(e));
+      } 
+    } 
+    sendJsonResponse(response, result);
+  }
+  
+  protected List<Query> parseQueriesJson(String queriesString) throws Exception {
+    JSONObject jsonObj = null;
+    JSONTokener jsonTokener = new JSONTokener(queriesString);
+    Object obj = jsonTokener.nextValue();
+    if (obj instanceof JSONObject) {
+      jsonObj = (JSONObject)obj;
+    } else {
+      throw new Exception("Unexpected object type for queries: " + obj.getClass().getSimpleName());
+    } 
+    List<Query> queries = new Vector<Query>();
+    Iterator<?> itKey = jsonObj.keys();
+    while (itKey.hasNext()) {
+      Object keyObj = itKey.next();
+      if (false == keyObj instanceof String)
+        throw new Exception("Invalid encoding of queries (non-string key)"); 
+      String key = (String)keyObj;
+      JSONObject jsonQuery = jsonObj.getJSONObject(key);
+      if (null == jsonQuery)
+        throw new Exception("Invalid encoding of queries (null query)"); 
+      Query query = parseQueryJson(key, jsonQuery);
+      queries.add(query);
+    } 
+    return queries;
+  }
+  
+  protected Query parseQueryJson(String key, JSONObject jsonQuery) throws Exception {
+    String tableName = jsonQuery.getString("table");
+    if (null == tableName)
+      throw new Exception("Invalid query : missing 'table' parameter"); 
+    Query query = new Query(key, tableName);
+    List<RecordSelector> whereExpressions = null;
+    if (JSONSupport.containsKey(jsonQuery, "where")) {
+      JSONArray whereArray = jsonQuery.getJSONArray("where");
+      whereExpressions = new Vector<RecordSelector>();
+      for (int loop = 0; loop < whereArray.length(); loop++) {
+        String wherePair = whereArray.getString(loop);
+        if (null == wherePair)
+          throw new Exception("Invalid query : null where expression"); 
+        RecordSelector columnComparison = parseRecordSelector(wherePair);
+        whereExpressions.add(columnComparison);
+      } 
+      query.setWhereExpressions(whereExpressions);
+    } 
+    List<FieldSelector> fieldSelectors = null;
+    if (JSONSupport.containsKey(jsonQuery, "select")) {
+      JSONArray selectArray = jsonQuery.getJSONArray("select");
+      fieldSelectors = new Vector<FieldSelector>();
+      for (int loop = 0; loop < selectArray.length(); loop++) {
+        String select = selectArray.getString(loop);
+        if (null == select)
+          throw new Exception("Invalid query : field selector must be a string"); 
+        FieldSelector fieldSelector = parseFieldSelectorString(select);
+        fieldSelectors.add(fieldSelector);
+      } 
+      query.setFieldSelectors(fieldSelectors);
+    } 
+    if (JSONSupport.containsKey(jsonQuery, "groupBy")) {
+      JSONArray groupByArray = jsonQuery.getJSONArray("groupBy");
+      List<FieldSelector> groupByColumnNames = new Vector<FieldSelector>();
+      for (int loop = 0; loop < groupByArray.length(); loop++) {
+        String fieldSelector = groupByArray.getString(loop);
+        if (null == fieldSelector)
+          throw new Exception("Invalid query : groupBy specifier must be a string"); 
+        groupByColumnNames.add(parseFieldSelectorString(fieldSelector));
+      } 
+      query.setGroupByColumnNames(groupByColumnNames);
+    } 
+    if (JSONSupport.containsKey(jsonQuery, "orderBy")) {
+      JSONArray orderByArray = jsonQuery.getJSONArray("orderBy");
+      List<OrderSpecifier> orderBySpecifiers = new Vector<OrderSpecifier>();
+      for (int loop = 0; loop < orderByArray.length(); loop++) {
+        String orderByString = orderByArray.getString(loop);
+        if (null == orderByString)
+          throw new Exception("Invalid query : orderBy specifier must be a string"); 
+        OrderSpecifier orderSpecifier = parseOrderSpecifier(orderByString);
+        orderBySpecifiers.add(orderSpecifier);
+      } 
+      query.setOrderBySpecifiers(orderBySpecifiers);
+    } 
+    if (JSONSupport.containsKey(jsonQuery, "limit")) {
+      int limit = jsonQuery.getInt("limit");
+      query.setLimit(new Integer(limit));
+    } 
+    if (JSONSupport.containsKey(jsonQuery, "offset")) {
+      int offset = jsonQuery.getInt("offset");
+      query.setOffset(new Integer(offset));
+    } 
+    return query;
+  }
+  
+  private void performInsert(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    User user = AuthenticationUtils.getUserFromRequest(request);
+    String tableName = getTableNameFromRequest(request);
+    DbTableAccess tableAccess = DbTableAccess.getAccess(this.dbSecurity, tableName, new DbUserAdaptor(user));
+    Map<String, String> setterMap = getSetParametersMap(request);
+    JSONObject insertedObj = tableAccess.insert(setterMap);
+    JSONObject obj = new JSONObject();
+    obj.put("inserted", insertedObj);
+    sendJsonResponse(response, obj);
+  }
+  
+  private void performUpdate(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    User user = AuthenticationUtils.getUserFromRequest(request);
+    String tableName = getTableNameFromRequest(request);
+    DbTableAccess tableAccess = DbTableAccess.getAccess(this.dbSecurity, tableName, new DbUserAdaptor(user));
+    List<RecordSelector> whereMap = getRecordSelectorsFromRequest(request);
+    Map<String, String> setterMap = getSetParametersMap(request);
+    JSONArray updatedObjects = tableAccess.update(whereMap, setterMap);
+    JSONObject obj = new JSONObject();
+    obj.put("updated", updatedObjects);
+    sendJsonResponse(response, obj);
+  }
+  
+  private void performDelete(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    User user = AuthenticationUtils.getUserFromRequest(request);
+    String tableName = getTableNameFromRequest(request);
+    DbTableAccess tableAccess = DbTableAccess.getAccess(this.dbSecurity, tableName, new DbUserAdaptor(user));
+    List<RecordSelector> whereMap = getRecordSelectorsFromRequest(request);
+    tableAccess.delete(whereMap);
+    JSONObject obj = new JSONObject();
+    sendJsonResponse(response, obj);
+  }
+  
+  private String getTableNameFromRequest(HttpServletRequest request) throws Exception {
+    String[] tableNames = request.getParameterValues("table");
+    if (null == tableNames || 0 == tableNames.length)
+      throw new Exception("Parameter 'table' not specified"); 
+    if (tableNames.length > 1)
+      throw new Exception("Parameter 'table' specified multiple times"); 
+    return tableNames[0];
+  }
+  
+  private List<RecordSelector> getRecordSelectorsFromRequest(HttpServletRequest request) throws Exception {
+    List<RecordSelector> result = new Vector<RecordSelector>();
+    String[] whereExpressions = request.getParameterValues("where");
+    if (null != whereExpressions)
+      for (int loop = 0; loop < whereExpressions.length; loop++) {
+        String exp = whereExpressions[loop];
+        RecordSelector rs = parseRecordSelector(exp);
+        if (null != rs)
+          result.add(rs); 
+      }  
+    return result;
+  }
+  
+  private RecordSelector parseRecordSelector(String recordSelectorString) throws Exception {
+    if (null == recordSelectorString || "" == recordSelectorString)
+      return null; 
+    Matcher matcher = patternSearchString.matcher(recordSelectorString);
+    if (matcher.matches()) {
+      String[] fieldNames = matcher.group(1).split(",");
+      String searchString = matcher.group(2);
+      return (RecordSelector)new RecordSelectorSearchString(fieldNames, searchString);
+    } 
+    matcher = patternEq.matcher(recordSelectorString);
+    if (matcher.matches())
+      return (RecordSelector)new RecordSelectorComparison(matcher.group(1), RecordSelectorComparison.Comparison.EQUAL, matcher.group(2)); 
+    matcher = patternNe.matcher(recordSelectorString);
+    if (matcher.matches())
+      return (RecordSelector)new RecordSelectorComparison(matcher.group(1), RecordSelectorComparison.Comparison.NOT_EQUAL, matcher.group(2)); 
+    matcher = patternGt.matcher(recordSelectorString);
+    if (matcher.matches())
+      return (RecordSelector)new RecordSelectorComparison(matcher.group(1), RecordSelectorComparison.Comparison.GREATER_THAN, matcher.group(2)); 
+    matcher = patternGe.matcher(recordSelectorString);
+    if (matcher.matches())
+      return (RecordSelector)new RecordSelectorComparison(matcher.group(1), RecordSelectorComparison.Comparison.GREATER_THAN_OR_EQUAL, matcher.group(2)); 
+    matcher = patternLt.matcher(recordSelectorString);
+    if (matcher.matches())
+      return (RecordSelector)new RecordSelectorComparison(matcher.group(1), RecordSelectorComparison.Comparison.LESS_THAN, matcher.group(2)); 
+    matcher = patternLe.matcher(recordSelectorString);
+    if (matcher.matches())
+      return (RecordSelector)new RecordSelectorComparison(matcher.group(1), RecordSelectorComparison.Comparison.LESS_THAN_OR_EQUAL, matcher.group(2)); 
+    matcher = patternNull.matcher(recordSelectorString);
+    if (matcher.matches())
+      return (RecordSelector)new RecordSelectorComparison(matcher.group(1), RecordSelectorComparison.Comparison.IS_NULL, (Expression)null); 
+    matcher = patternNotNull.matcher(recordSelectorString);
+    if (matcher.matches())
+      return (RecordSelector)new RecordSelectorComparison(matcher.group(1), RecordSelectorComparison.Comparison.IS_NOT_NULL, (Expression)null); 
+    throw new Exception("Invalid query : can not parse record selector: " + recordSelectorString);
+  }
+  
+  private List<FieldSelector> getFieldSelectorsFromRequest(HttpServletRequest request) throws Exception {
+    String[] fieldSelectorStrings = request.getParameterValues("select");
+    if (null == fieldSelectorStrings)
+      return null; 
+    if (0 == fieldSelectorStrings.length)
+      return null; 
+    List<FieldSelector> result = new Vector<FieldSelector>();
+    for (String fieldSelectorString : fieldSelectorStrings) {
+      FieldSelector fieldSelector = parseFieldSelectorString(fieldSelectorString);
+      result.add(fieldSelector);
+    } 
+    return result;
+  }
+  
+  private FieldSelector parseFieldSelectorString(String fieldSelectorString) throws Exception {
+    Matcher matcher = patternSum.matcher(fieldSelectorString);
+    if (matcher.matches())
+      return (FieldSelector)new FieldSelectorFunction(FieldSelectorFunction.Type.SUM, matcher.group(1)); 
+    matcher = patternMin.matcher(fieldSelectorString);
+    if (matcher.matches())
+      return (FieldSelector)new FieldSelectorFunction(FieldSelectorFunction.Type.MIN, matcher.group(1)); 
+    matcher

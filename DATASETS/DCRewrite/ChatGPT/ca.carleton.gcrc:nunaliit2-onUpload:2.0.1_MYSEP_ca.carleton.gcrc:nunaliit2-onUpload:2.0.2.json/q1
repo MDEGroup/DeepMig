@@ -1,0 +1,232 @@
+To migrate the given class from Log4j to SLF4J, you need to replace the Log4j-specific imports and logger initialization with their SLF4J equivalents. Here are the specific changes highlighted:
+
+**Original Code:**
+
+```java
+package ca.carleton.gcrc.onUpload;
+
+import ca.carleton.gcrc.contributions.Contributions;
+import java.security.Principal;
+import java.sql.Timestamp;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.Vector;
+// Import Log4j
+import org.apache.log4j.Logger;
+
+public class ContributionHandler {
+  // Initialize Log4j logger
+  protected final Logger logger = Logger.getLogger(getClass());
+  
+  private Map<String, List<String>> parameters;
+  
+  private Principal userPrincipal;
+  
+  public ContributionHandler(Map<String, List<String>> parameters, Principal userPrincipal) {
+    this.parameters = parameters;
+    this.userPrincipal = userPrincipal;
+  }
+  
+  private void addParm(String key, String value) {
+    List<String> paramList = this.parameters.get(key);
+    if (null == paramList) {
+      paramList = new Vector<String>();
+      this.parameters.put(key, paramList);
+    } 
+    paramList.add(value);
+  }
+  
+  private void createServerGeneratedFields(UploadedFileInfo fileInfo, Contributions cont, boolean fileDelete) throws Exception {
+    if (!fileDelete && null == fileInfo) {
+      this.parameters.remove("filename");
+      this.parameters.remove("original_filename");
+      this.parameters.remove("mimetype");
+      this.parameters.remove("file_size");
+    } else if (null != fileInfo) {
+      addParm("filename", fileInfo.getConvertedFile().getName());
+      addParm("original_filename", fileInfo.getUploadedFile().getName());
+      addParm("mimetype", fileInfo.getMimeType());
+      addParm("file_size", "" + fileInfo.getConvertedFile().length());
+    } else if (fileDelete) {
+      addParm("filename", null);
+      addParm("original_filename", null);
+      addParm("mimetype", null);
+      addParm("file_size", null);
+    } 
+    List<String> vec = this.parameters.get("isUpdate");
+    if (vec == null)
+      throw new Exception("Missing isUpdate parameter"); 
+    long now = (new Date()).getTime();
+    if ("false".equalsIgnoreCase(vec.get(0))) {
+      addParm("create_ms", "" + now);
+      addParm("create_ts", "" + new Timestamp(now));
+      if (null != this.userPrincipal) {
+        int contributorId = Integer.parseInt(this.userPrincipal.getName());
+        addParm("contributor_id", "" + contributorId);
+      } 
+    } else {
+      this.parameters.remove("last_edit_timestamp");
+      this.parameters.remove("last_edit_id");
+      addParm("last_edit_timestamp", "" + new Timestamp(now));
+      if (null != this.userPrincipal) {
+        int contributorId = Integer.parseInt(this.userPrincipal.getName());
+        addParm("last_edit_id", "" + contributorId);
+      } 
+    } 
+  }
+  
+  public void performDatabaseUpdate(UploadedFileInfo fileInfo, Contributions cont) throws Exception {
+    List<String> vec = this.parameters.get("id");
+    if (null == vec)
+      throw new Exception("Contributor id required for update."); 
+    this.logger.info("Updating contribution (" + (String)vec.get(0) + ") for user id: " + ((this.userPrincipal == null) ? "unknown" : this.userPrincipal.getName()));
+    boolean fileDelete = false;
+    vec = this.parameters.get("deleteFile");
+    if (null != vec && "true".equalsIgnoreCase(vec.get(0)))
+      fileDelete = true; 
+    createServerGeneratedFields(fileInfo, cont, fileDelete);
+    cont.update(this.parameters);
+  }
+  
+  public void performDatabaseUpdate(Contributions cont) throws Exception {
+    performDatabaseUpdate(null, cont);
+  }
+  
+  public void performDatabaseInsert(UploadedFileInfo fileInfo, Contributions cont) throws Exception {
+    this.logger.info("Inserting contribution for user id: " + ((this.userPrincipal == null) ? "unknown" : this.userPrincipal.getName()));
+    createServerGeneratedFields(fileInfo, cont, false);
+    cont.insert(this.parameters);
+  }
+  
+  public void performDatabaseInsert(Contributions cont) throws Exception {
+    performDatabaseInsert(null, cont);
+  }
+}
+```
+
+**Highlighted Changes:**
+
+1. Import the SLF4J logger:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. Replace the Log4j logger initialization with SLF4J:
+   ```java
+   // protected final Logger logger = Logger.getLogger(getClass());
+   protected final Logger logger = LoggerFactory.getLogger(getClass());
+   ```
+
+**Updated Code:**
+
+```java
+package ca.carleton.gcrc.onUpload;
+
+import ca.carleton.gcrc.contributions.Contributions;
+import java.security.Principal;
+import java.sql.Timestamp;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.Vector;
+// Import SLF4J
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ContributionHandler {
+  // Initialize SLF4J logger
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private Map<String, List<String>> parameters;
+  
+  private Principal userPrincipal;
+  
+  public ContributionHandler(Map<String, List<String>> parameters, Principal userPrincipal) {
+    this.parameters = parameters;
+    this.userPrincipal = userPrincipal;
+  }
+  
+  private void addParm(String key, String value) {
+    List<String> paramList = this.parameters.get(key);
+    if (null == paramList) {
+      paramList = new Vector<String>();
+      this.parameters.put(key, paramList);
+    } 
+    paramList.add(value);
+  }
+  
+  private void createServerGeneratedFields(UploadedFileInfo fileInfo, Contributions cont, boolean fileDelete) throws Exception {
+    if (!fileDelete && null == fileInfo) {
+      this.parameters.remove("filename");
+      this.parameters.remove("original_filename");
+      this.parameters.remove("mimetype");
+      this.parameters.remove("file_size");
+    } else if (null != fileInfo) {
+      addParm("filename", fileInfo.getConvertedFile().getName());
+      addParm("original_filename", fileInfo.getUploadedFile().getName());
+      addParm("mimetype", fileInfo.getMimeType());
+      addParm("file_size", "" + fileInfo.getConvertedFile().length());
+    } else if (fileDelete) {
+      addParm("filename", null);
+      addParm("original_filename", null);
+      addParm("mimetype", null);
+      addParm("file_size", null);
+    } 
+    List<String> vec = this.parameters.get("isUpdate");
+    if (vec == null)
+      throw new Exception("Missing isUpdate parameter"); 
+    long now = (new Date()).getTime();
+    if ("false".equalsIgnoreCase(vec.get(0))) {
+      addParm("create_ms", "" + now);
+      addParm("create_ts", "" + new Timestamp(now));
+      if (null != this.userPrincipal) {
+        int contributorId = Integer.parseInt(this.userPrincipal.getName());
+        addParm("contributor_id", "" + contributorId);
+      } 
+    } else {
+      this.parameters.remove("last_edit_timestamp");
+      this.parameters.remove("last_edit_id");
+      addParm("last_edit_timestamp", "" + new Timestamp(now));
+      if (null != this.userPrincipal) {
+        int contributorId = Integer.parseInt(this.userPrincipal.getName());
+        addParm("last_edit_id", "" + contributorId);
+      } 
+    } 
+  }
+  
+  public void performDatabaseUpdate(UploadedFileInfo fileInfo, Contributions cont) throws Exception {
+    List<String> vec = this.parameters.get("id");
+    if (null == vec)
+      throw new Exception("Contributor id required for update."); 
+    this.logger.info("Updating contribution (" + (String)vec.get(0) + ") for user id: " + ((this.userPrincipal == null) ? "unknown" : this.userPrincipal.getName()));
+    boolean fileDelete = false;
+    vec = this.parameters.get("deleteFile");
+    if (null != vec && "true".equalsIgnoreCase(vec.get(0)))
+      fileDelete = true; 
+    createServerGeneratedFields(fileInfo, cont, fileDelete);
+    cont.update(this.parameters);
+  }
+  
+  public void performDatabaseUpdate(Contributions cont) throws Exception {
+    performDatabaseUpdate(null, cont);
+  }
+  
+  public void performDatabaseInsert(UploadedFileInfo fileInfo, Contributions cont) throws Exception {
+    this.logger.info("Inserting contribution for user id: " + ((this.userPrincipal == null) ? "unknown" : this.userPrincipal.getName()));
+    createServerGeneratedFields(fileInfo, cont, false);
+    cont.insert(this.parameters);
+  }
+  
+  public void performDatabaseInsert(Contributions cont) throws Exception {
+    performDatabaseInsert(null, cont);
+  }
+}
+```
+
+**Summary of Changes:**
+
+- Imported SLF4J `Logger` and `LoggerFactory`.
+- Replaced the Log4j logger initialization with SLF4J's `LoggerFactory.getLogger`.
+- Adjusted the type of the `logger` variable to `org.slf4j.Logger`.

@@ -1,0 +1,403 @@
+To migrate the given class from Log4j to SLF4J, here are the specific changes you need to implement:
+
+1. Change Imports
+Replace the Log4j import with SLF4J imports.
+
+2. Update Logger Initialization
+Replace the Log4j logger initialization with SLF4J logger initialization.
+
+Highlighted Changes
+Original Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.auth.cookie;
+
+import ca.carleton.gcrc.auth.common.AuthenticationUtils;
+import ca.carleton.gcrc.auth.common.User;
+import ca.carleton.gcrc.auth.common.UserRepository;
+import ca.carleton.gcrc.auth.common.UserRepositorySingleton;
+import ca.carleton.gcrc.auth.cookie.impl.CookieAuthentication;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.util.Date;
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletException;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import org.apache.log4j.Logger;
+import org.json.JSONObject;
+
+public class AuthServlet extends HttpServlet {
+  private static final long serialVersionUID = 1L;
+  
+  private static final String defaultCookieName = "olkit-auth";
+  
+  protected final Logger logger = Logger.getLogger(getClass());
+  
+  private UserRepository userRepository;
+  
+  private String cookieName = "olkit-auth";
+  
+  public void init(ServletConfig config) throws ServletException {
+    super.init(config);
+    String value = config.getInitParameter("cookie");
+    if (null != value)
+      this.cookieName = value; 
+    this.userRepository = UserRepositorySingleton.getSingleton();
+  }
+  
+  public void destroy() {
+    if (null != this.userRepository)
+      this.userRepository.destroy(); 
+  }
+  
+  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    doPost(request, response);
+  }
+  
+  protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    String[] paths = request.getRequestURI().split("/");
+    String path = paths[paths.length - 1];
+    this.logger.info(getClass().getName() + " " + path);
+    try {
+      if ("login".equalsIgnoreCase(path)) {
+        performLogin(request, response);
+      } else if ("logout".equalsIgnoreCase(path)) {
+        performLogout(request, response);
+      } else if ("adjust".equalsIgnoreCase(path)) {
+        performAdjustCookies(request, response);
+      } else {
+        throw new Exception("Unknown request: " + path);
+      } 
+    } catch (Exception e) {
+      this.logger.info("Error encountered while performing: " + path, e);
+      sendErrorResponse(response, e);
+    } 
+  }
+  
+  private void performLogin(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    User user;
+    String name = null;
+    String[] nameParams = request.getParameterValues("name");
+    if (null != nameParams) {
+      if (nameParams.length > 1)
+        throw new Exception("name parameter provided multiple times"); 
+      if (nameParams.length == 1)
+        name = nameParams[0]; 
+    } 
+    String password = null;
+    String[] params = request.getParameterValues("password");
+    if (null != params) {
+      if (params.length > 1)
+        throw new Exception("password parameter provided multiple times"); 
+      if (params.length == 1)
+        password = params[0]; 
+    } 
+    if (null == name || null == password)
+      throw new Exception("name or password missing"); 
+    try {
+      user = this.userRepository.authenticate(name, password);
+    } catch (Exception e) {
+      throw new Exception("Invalid credentials");
+    } 
+    this.logger.info("user: " + user);
+    acceptRequest(response, true, user);
+  }
+  
+  private void performLogout(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    User user = this.userRepository.getDefaultUser();
+    acceptRequest(response, false, user);
+  }
+  
+  private void performAdjustCookies(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    boolean loggedIn = false;
+    User user = null;
+    try {
+      Cookie cookie = getCookieFromRequest(request);
+      if (null != cookie) {
+        user = CookieAuthentication.verifyCookieString(this.userRepository, cookie.getValue());
+        loggedIn = true;
+      } 
+    } catch (Exception e) {}
+    if (null == user)
+      user = this.userRepository.getDefaultUser(); 
+    acceptRequest(response, loggedIn, user);
+  }
+  
+  private void setUserCookie(HttpServletResponse response, boolean loggedIn, User user) throws Exception {
+    String userJson = AuthenticationUtils.userToCookieString(loggedIn, user);
+    Cookie cookie = new Cookie("nunaliit-auth", userJson);
+    cookie.setPath("/");
+    response.addCookie(cookie);
+  }
+  
+  private void acceptRequest(HttpServletResponse response, boolean loggedIn, User user) throws Exception {
+    setUserCookie(response, loggedIn, user);
+    String value = CookieAuthentication.computeCookieString(user);
+    Cookie cookie = new Cookie(this.cookieName, value);
+    cookie.setPath("/");
+    response.addCookie(cookie);
+    sendUserResponse(response, loggedIn, user);
+  }
+  
+  private void sendUserResponse(HttpServletResponse response, boolean loggedIn, User user) throws Exception {
+    response.setStatus(200);
+    response.setHeader("Cache-Control", "no-cache");
+    response.setDateHeader("Expires", (new Date()).getTime());
+    response.setContentType("text/plain");
+    response.setCharacterEncoding("utf-8");
+    JSONObject userJson = user.toJSON();
+    JSONObject result = new JSONObject();
+    result.put("user", userJson);
+    result.put("logged", loggedIn);
+    OutputStreamWriter osw = new OutputStreamWriter((OutputStream)response.getOutputStream(), "UTF-8");
+    result.write(osw);
+    osw.flush();
+  }
+  
+  private void sendErrorResponse(HttpServletResponse response, Throwable error) throws ServletException {
+    response.setStatus(500);
+    response.setHeader("Cache-Control", "no-cache");
+    response.setDateHeader("Expires", (new Date()).getTime());
+    response.setContentType("text/plain");
+    response.setCharacterEncoding("utf-8");
+    try {
+      JSONObject result = new JSONObject();
+      result.put("error", errorToJson(error));
+      OutputStreamWriter osw = new OutputStreamWriter((OutputStream)response.getOutputStream(), "UTF-8");
+      result.write(osw);
+      osw.flush();
+    } catch (Exception e) {
+      throw new ServletException("Failure generating an error", e);
+    } 
+  }
+  
+  private JSONObject errorToJson(Throwable error) throws Exception {
+    JSONObject errorObj = new JSONObject();
+    errorObj.put("message", error.getMessage());
+    if (null != error.getCause())
+      errorObj.put("cause", errorToJson(error.getCause())); 
+    return errorObj;
+  }
+  
+  private Cookie getCookieFromRequest(HttpServletRequest request) {
+    Cookie[] cookies = request.getCookies();
+    Cookie authCookie = null;
+    for (Cookie cookie : cookies) {
+      if (this.cookieName.equals(cookie.getName())) {
+        authCookie = cookie;
+        break;
+      } 
+    } 
+    return authCookie;
+  }
+}
+Updated Code (With Changes Highlighted):
+
+java
+Copia codice
+package ca.carleton.gcrc.auth.cookie;
+
+import ca.carleton.gcrc.auth.common.AuthenticationUtils;
+import ca.carleton.gcrc.auth.common.User;
+import ca.carleton.gcrc.auth.common.UserRepository;
+import ca.carleton.gcrc.auth.common.UserRepositorySingleton;
+import ca.carleton.gcrc.auth.cookie.impl.CookieAuthentication;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.util.Date;
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletException;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+// **Change from Log4j to SLF4J**
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.json.JSONObject;
+
+public class AuthServlet extends HttpServlet {
+  private static final long serialVersionUID = 1L;
+  
+  private static final String defaultCookieName = "olkit-auth";
+  
+  // **Change from Log4j to SLF4J**
+  // protected final Logger logger = Logger.getLogger(getClass());
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private UserRepository userRepository;
+  
+  private String cookieName = "olkit-auth";
+  
+  public void init(ServletConfig config) throws ServletException {
+    super.init(config);
+    String value = config.getInitParameter("cookie");
+    if (null != value)
+      this.cookieName = value; 
+    this.userRepository = UserRepositorySingleton.getSingleton();
+  }
+  
+  public void destroy() {
+    if (null != this.userRepository)
+      this.userRepository.destroy(); 
+  }
+  
+  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    doPost(request, response);
+  }
+  
+  protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    String[] paths = request.getRequestURI().split("/");
+    String path = paths[paths.length - 1];
+    // **Change from Log4j to SLF4J**
+    // this.logger.info(getClass().getName() + " " + path);
+    this.logger.info("{} {}", getClass().getName(), path);
+    try {
+      if ("login".equalsIgnoreCase(path)) {
+        performLogin(request, response);
+      } else if ("logout".equalsIgnoreCase(path)) {
+        performLogout(request, response);
+      } else if ("adjust".equalsIgnoreCase(path)) {
+        performAdjustCookies(request, response);
+      } else {
+        throw new Exception("Unknown request: " + path);
+      } 
+    } catch (Exception e) {
+      // **Change from Log4j to SLF4J**
+      // this.logger.info("Error encountered while performing: " + path, e);
+      this.logger.info("Error encountered while performing: {}", path, e);
+      sendErrorResponse(response, e);
+    } 
+  }
+  
+  private void performLogin(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    User user;
+    String name = null;
+    String[] nameParams = request.getParameterValues("name");
+    if (null != nameParams) {
+      if (nameParams.length > 1)
+        throw new Exception("name parameter provided multiple times"); 
+      if (nameParams.length == 1)
+        name = nameParams[0]; 
+    } 
+    String password = null;
+    String[] params = request.getParameterValues("password");
+    if (null != params) {
+      if (params.length > 1)
+        throw new Exception("password parameter provided multiple times"); 
+      if (params.length == 1)
+        password = params[0]; 
+    } 
+    if (null == name || null == password)
+      throw new Exception("name or password missing"); 
+    try {
+      user = this.userRepository.authenticate(name, password);
+    } catch (Exception e) {
+      throw new Exception("Invalid credentials");
+    } 
+    // **Change from Log4j to SLF4J**
+    // this.logger.info("user: " + user);
+    this.logger.info("user: {}", user);
+    acceptRequest(response, true, user);
+  }
+  
+  private void performLogout(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    User user = this.userRepository.getDefaultUser();
+    acceptRequest(response, false, user);
+  }
+  
+  private void performAdjustCookies(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    boolean loggedIn = false;
+    User user = null;
+    try {
+      Cookie cookie = getCookieFromRequest(request);
+      if (null != cookie) {
+        user = CookieAuthentication.verifyCookieString(this.userRepository, cookie.getValue());
+        loggedIn = true;
+      } 
+    } catch (Exception e) {}
+    if (null == user)
+      user = this.userRepository.getDefaultUser(); 
+    acceptRequest(response, loggedIn, user);
+  }
+  
+  private void setUserCookie(HttpServletResponse response, boolean loggedIn, User user) throws Exception {
+    String userJson = AuthenticationUtils.userToCookieString(loggedIn, user);
+    Cookie cookie = new Cookie("nunaliit-auth", userJson);
+    cookie.setPath("/");
+    response.addCookie(cookie);
+  }
+  
+  private void acceptRequest(HttpServletResponse response, boolean loggedIn, User user) throws Exception {
+    setUserCookie(response, loggedIn, user);
+    String value = CookieAuthentication.computeCookieString(user);
+    Cookie cookie = new Cookie(this.cookieName, value);
+    cookie.setPath("/");
+    response.addCookie(cookie);
+    sendUserResponse(response, loggedIn, user);
+  }
+  
+  private void sendUserResponse(HttpServletResponse response, boolean loggedIn, User user) throws Exception {
+    response.setStatus(200);
+    response.setHeader("Cache-Control", "no-cache");
+    response.setDateHeader("Expires", (new Date()).getTime());
+    response.setContentType("text/plain");
+    response.setCharacterEncoding("utf-8");
+    JSONObject userJson = user.toJSON();
+    JSONObject result = new JSONObject();
+    result.put("user", userJson);
+    result.put("logged", loggedIn);
+    OutputStreamWriter osw = new OutputStreamWriter((OutputStream)response.getOutputStream(), "UTF-8");
+    result.write(osw);
+    osw.flush();
+  }
+  
+  private void sendErrorResponse(HttpServletResponse response, Throwable error) throws ServletException {
+    response.setStatus(500);
+    response.setHeader("Cache-Control", "no-cache");
+    response.setDateHeader("Expires", (new Date()).getTime());
+    response.setContentType("text/plain");
+    response.setCharacterEncoding("utf-8");
+    try {
+      JSONObject result = new JSONObject();
+      result.put("error", errorToJson(error));
+      OutputStreamWriter osw = new OutputStreamWriter((OutputStream)response.getOutputStream(), "UTF-8");
+      result.write(osw);
+      osw.flush();
+    } catch (Exception e) {
+      throw new ServletException("Failure generating an error", e);
+    } 
+  }
+  
+  private JSONObject errorToJson(Throwable error) throws Exception {
+    JSONObject errorObj = new JSONObject();
+    errorObj.put("message", error.getMessage());
+    if (null != error.getCause())
+      errorObj.put("cause", errorToJson(error.getCause())); 
+    return errorObj;
+  }
+  
+  private Cookie getCookieFromRequest(HttpServletRequest request) {
+    Cookie[] cookies = request.getCookies();
+    Cookie authCookie = null;
+    for (Cookie cookie : cookies) {
+      if (this.cookieName.equals(cookie.getName())) {
+        authCookie = cookie;
+        break;
+      } 
+    } 
+    return authCookie;
+  }
+}
+Summary of Changes:
+Imports: Changed import org.apache.log4j.Logger; to import org.slf4j.Logger; and import org.slf4j.LoggerFactory;.
+Logger Initialization: Changed Logger.getLogger(getClass()); to LoggerFactory.getLogger(getClass());.
+Logging Statements: Updated logging statements to use SLF4J's placeholder-based logging.
+These changes will migrate your class from Log4j to SLF4J. Make sure to update the dependencies in your pom.xml as described earlier and test your application thoroughly to ensure that logging works as expected.

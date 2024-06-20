@@ -1,0 +1,904 @@
+To migrate the given class from Log4j to SLF4J, you need to replace the Log4j-specific imports and logger initialization with their SLF4J equivalents. Here are the specific changes highlighted with comments:
+
+Original Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.contributions;
+
+import ca.carleton.gcrc.auth.common.UserRepository;
+import ca.carleton.gcrc.contributionsImpl.ContributionClientSideFieldsImpl;
+import ca.carleton.gcrc.contributionsImpl.ContributionServerSupportedFieldsImpl;
+import ca.carleton.gcrc.dbSec.impl.ColumnDataUtils;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.Statement;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Vector;
+import javax.servlet.ServletException;
+// Import Log4j
+import org.apache.log4j.Logger;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+public class Contributions {
+  // Initialize Log4j logger
+  protected final Logger logger = Logger.getLogger(getClass());
+  
+  public static final String PROPERTIES_KEY_TABLE_NAME = "contributions.tableName";
+  
+  public static final String PROPERTIES_KEY_ID_COLUMN_NAME = "contributions.idColumnName";
+  
+  public static final String PROPERTIES_KEY_ID_SEQUENCE_NAME = "contributions.idSequenceName";
+  
+  public static final String PROPERTIES_KEY_SERVER_SUPPORTED_COLUMNS = "contributions.serverSupportedColumns";
+  
+  public static final String PROPERTIES_KEY_CLIENT_SIDE_COLUMNS = "contributions.clientSideColumns";
+  
+  public static final String DEFAULT_TABLE_NAME = "contributions";
+  
+  public static final String DEFAULT_ID_COLUMN_NAME = "id";
+  
+  public static final String DEFAULT_ID_SEQUENCE_NAME = "contributions_id_seq";
+  
+  public static final String DEFAULT_SERVER_SUPPORTED_COLUMNS = "id,place_id,contributor_id,create_ts,create_ms,last_edit_timestamp,last_edit_id,filename,original_filename,mimetype,file_size";
+  
+  public static final String DEFAULT_CLIENT_SIDE_COLUMNS = "title,notes,fileuse,likes,dislikes,related_to";
+  
+  private ContributionComet contributionComet = new ContributionCometNull();
+  
+  private Connection connection;
+  
+  private String tableName;
+  
+  private String idColumnName;
+  
+  private String idSequenceName;
+  
+  private String deleteSqlStatement;
+  
+  private ContributionsFieldSubset serverSupported;
+  
+  private ContributionsFieldSubset clientSide;
+  
+  public Contributions(Properties props, Connection connection) throws Exception {
+    this.connection = connection;
+    this.serverSupported = (ContributionsFieldSubset)new ContributionServerSupportedFieldsImpl();
+    this.clientSide = (ContributionsFieldSubset)new ContributionClientSideFieldsImpl();
+    readProperties(props);
+  }
+  
+  private void readProperties(Properties props) throws Exception {
+    this.tableName = props.getProperty("contributions.tableName", "contributions");
+    this.idColumnName = props.getProperty("contributions.idColumnName", "id");
+    this.idSequenceName = props.getProperty("contributions.idSequenceName", "contributions_id_seq");
+    String serverFieldList = props.getProperty("contributions.serverSupportedColumns", "id,place_id,contributor_id,create_ts,create_ms,last_edit_timestamp,last_edit_id,filename,original_filename,mimetype,file_size");
+    String clientFieldList = props.getProperty("contributions.clientSideColumns", "title,notes,fileuse,likes,dislikes,related_to");
+    createServerSupportedAndClientSideLists(serverFieldList, clientFieldList);
+    allFieldsInDb(serverFieldList, true);
+    allFieldsInDb(clientFieldList, false);
+    if (this.serverSupported.includes(this.idColumnName)) {
+      this.serverSupported.setAutoIncrementSequence(this.idColumnName, this.idSequenceName);
+    } else {
+      throw new Exception(this.idColumnName + " must be included in the serverSupported field list.");
+    } 
+    this.deleteSqlStatement = "DELETE FROM \"" + this.tableName + "\" WHERE \"" + this.idColumnName + "\" = ?;";
+  }
+  
+  private void createServerSupportedAndClientSideLists(String serverFieldList, String clientFieldList) throws Exception {
+    String[] serverFields = serverFieldList.split(",");
+    String[] clientFields = clientFieldList.split(",");
+    String sqlQuery = null;
+    StringWriter sw = new StringWriter();
+    PrintWriter pw = new PrintWriter(sw);
+    pw.print("SELECT * FROM " + this.tableName + " LIMIT 1;");
+    pw.flush();
+    sqlQuery = sw.toString();
+    Statement stmt = this.connection.createStatement();
+    if (stmt.execute(sqlQuery)) {
+      ResultSet rs = stmt.getResultSet();
+      ResultSetMetaData rsmd = rs.getMetaData();
+      int count = rsmd.getColumnCount();
+      for (int loop = 0; loop < count; loop++) {
+        String columnName = rsmd.getColumnName(loop + 1);
+        boolean isServerSupported = isColumnNameInList(columnName, serverFields);
+        boolean isClientSide = isColumnNameInList(columnName, clientFields);
+        if (isServerSupported && isClientSide)
+          throw new Exception(columnName + " is included in both the serverSupported and clientSide contribution field lists."); 
+        if (isServerSupported) {
+          this.serverSupported.addColumn(columnName, rsmd.getColumnType(loop + 1), rsmd.getColumnTypeName(loop + 1));
+        } else if (isClientSide) {
+          this.clientSide.addColumn(columnName, rsmd.getColumnType(loop + 1), rsmd.getColumnTypeName(loop + 1));
+        } else {
+          throw new Exception(columnName + " is NOT included in either the serverSupported or clientSide contribution field lists.");
+        } 
+      } 
+    } 
+  }
+  
+  private boolean isColumnNameInList(String columnName, String[] list) {
+    boolean ret = false;
+    for (String column : list) {
+      if (column.equals(columnName))
+        return true; 
+    } 
+    return ret;
+  }
+  
+  private void allFieldsInDb(String list, boolean checkServerSupported) throws Exception {
+    String[] fieldNames = list.split(",");
+    for (String field : fieldNames) {
+      boolean exists = false;
+      if (checkServerSupported && this.serverSupported.includes(field)) {
+        exists = true;
+      } else if (!checkServerSupported && this.clientSide.includes(field)) {
+        exists = true;
+      } 
+      if (!exists)
+        throw new Exception(field + " does not exist in the " + this.tableName + " schema."); 
+    } 
+  }
+  
+  public void deleteContribution(String contributionId, String placeId) throws Exception {
+    int id = Integer.parseInt(contributionId);
+    PreparedStatement stmt = this.connection.prepareStatement(this.deleteSqlStatement);
+    stmt.setInt(1, id);
+    stmt.execute();
+    this.contributionComet.reportDeletedContribution(placeId, contributionId);
+  }
+  
+  public JSONObject fromName(String intPlaceId, UserRepository userRepository) throws Exception {
+    String queryString = "SELECT " + this.serverSupported.getFieldNamesList();
+    String clientFieldList = this.clientSide.getFieldNamesList();
+    if (clientFieldList != "")
+      queryString = queryString + "," + clientFieldList; 
+    queryString = queryString + " FROM " + this.tableName + " WHERE place_id=?;";
+    PreparedStatement stmt = this.connection.prepareStatement(queryString);
+    this.serverSupported.writeToPreparedStatement(stmt, "place_id", 1, intPlaceId);
+    JSONArray contributions = executeContribSelectToJson(stmt, userRepository);
+    JSONObject result = new JSONObject();
+    result.put("contributions", contributions);
+    return result;
+  }
+  
+  private JSONArray executeContribSelectToJson(PreparedStatement pstmt, UserRepository userRepository) throws Exception {
+    Map<Integer, JSONObject> userInfoMap = new HashMap<Integer, JSONObject>();
+    boolean resultAvailable = pstmt.execute();
+    if (!resultAvailable)
+      throw new Exception("Query returned no results"); 
+    ResultSet rs = pstmt.getResultSet();
+    ResultSetMetaData rsmd = rs.getMetaData();
+    JSONArray array = new JSONArray();
+    try {
+      while (rs.next()) {
+        JSONObject obj = new JSONObject();
+        for (int loop = 0; loop < rsmd.getColumnCount(); loop++) {
+          int index = loop + 1;
+          String columnName = rsmd.getColumnName(index);
+          if ("contributor_id".equalsIgnoreCase(columnName) || "last_edit_id".equalsIgnoreCase(columnName)) {
+            JSONObject userInfo = null;
+            int contributor_id = rs.getInt(index);
+            Integer contId = new Integer(contributor_id);
+            if (userInfoMap.containsKey(contId)) {
+              userInfo = userInfoMap.get(contId);
+            } else {
+              try {
+                userInfo = userRepository.userInfoFromId(contributor_id);
+              } catch (Exception e) {}
+              userInfoMap.put(contId, userInfo);
+            } 
+            if (null != userInfo)
+              if ("contributor_id".equalsIgnoreCase(columnName)) {
+                obj.put("contributor", userInfo);
+              } else {
+                obj.put("lastContributor", userInfo);
+              }  
+          } else {
+            ColumnDataUtils.addColumnToJson(obj, rs,
+To migrate the given class from Log4j to SLF4J, you need to replace the Log4j-specific imports and logger initialization with their SLF4J equivalents. Here are the specific changes highlighted with comments:
+
+Original Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.contributions;
+
+import ca.carleton.gcrc.auth.common.UserRepository;
+import ca.carleton.gcrc.contributionsImpl.ContributionClientSideFieldsImpl;
+import ca.carleton.gcrc.contributionsImpl.ContributionServerSupportedFieldsImpl;
+import ca.carleton.gcrc.dbSec.impl.ColumnDataUtils;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.Statement;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Vector;
+import javax.servlet.ServletException;
+// Import Log4j
+import org.apache.log4j.Logger;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+public class Contributions {
+  // Initialize Log4j logger
+  protected final Logger logger = Logger.getLogger(getClass());
+  
+  public static final String PROPERTIES_KEY_TABLE_NAME = "contributions.tableName";
+  
+  public static final String PROPERTIES_KEY_ID_COLUMN_NAME = "contributions.idColumnName";
+  
+  public static final String PROPERTIES_KEY_ID_SEQUENCE_NAME = "contributions.idSequenceName";
+  
+  public static final String PROPERTIES_KEY_SERVER_SUPPORTED_COLUMNS = "contributions.serverSupportedColumns";
+  
+  public static final String PROPERTIES_KEY_CLIENT_SIDE_COLUMNS = "contributions.clientSideColumns";
+  
+  public static final String DEFAULT_TABLE_NAME = "contributions";
+  
+  public static final String DEFAULT_ID_COLUMN_NAME = "id";
+  
+  public static final String DEFAULT_ID_SEQUENCE_NAME = "contributions_id_seq";
+  
+  public static final String DEFAULT_SERVER_SUPPORTED_COLUMNS = "id,place_id,contributor_id,create_ts,create_ms,last_edit_timestamp,last_edit_id,filename,original_filename,mimetype,file_size";
+  
+  public static final String DEFAULT_CLIENT_SIDE_COLUMNS = "title,notes,fileuse,likes,dislikes,related_to";
+  
+  private ContributionComet contributionComet = new ContributionCometNull();
+  
+  private Connection connection;
+  
+  private String tableName;
+  
+  private String idColumnName;
+  
+  private String idSequenceName;
+  
+  private String deleteSqlStatement;
+  
+  private ContributionsFieldSubset serverSupported;
+  
+  private ContributionsFieldSubset clientSide;
+  
+  public Contributions(Properties props, Connection connection) throws Exception {
+    this.connection = connection;
+    this.serverSupported = (ContributionsFieldSubset)new ContributionServerSupportedFieldsImpl();
+    this.clientSide = (ContributionsFieldSubset)new ContributionClientSideFieldsImpl();
+    readProperties(props);
+  }
+  
+  private void readProperties(Properties props) throws Exception {
+    this.tableName = props.getProperty("contributions.tableName", "contributions");
+    this.idColumnName = props.getProperty("contributions.idColumnName", "id");
+    this.idSequenceName = props.getProperty("contributions.idSequenceName", "contributions_id_seq");
+    String serverFieldList = props.getProperty("contributions.serverSupportedColumns", "id,place_id,contributor_id,create_ts,create_ms,last_edit_timestamp,last_edit_id,filename,original_filename,mimetype,file_size");
+    String clientFieldList = props.getProperty("contributions.clientSideColumns", "title,notes,fileuse,likes,dislikes,related_to");
+    createServerSupportedAndClientSideLists(serverFieldList, clientFieldList);
+    allFieldsInDb(serverFieldList, true);
+    allFieldsInDb(clientFieldList, false);
+    if (this.serverSupported.includes(this.idColumnName)) {
+      this.serverSupported.setAutoIncrementSequence(this.idColumnName, this.idSequenceName);
+    } else {
+      throw new Exception(this.idColumnName + " must be included in the serverSupported field list.");
+    } 
+    this.deleteSqlStatement = "DELETE FROM \"" + this.tableName + "\" WHERE \"" + this.idColumnName + "\" = ?;";
+  }
+  
+  private void createServerSupportedAndClientSideLists(String serverFieldList, String clientFieldList) throws Exception {
+    String[] serverFields = serverFieldList.split(",");
+    String[] clientFields = clientFieldList.split(",");
+    String sqlQuery = null;
+    StringWriter sw = new StringWriter();
+    PrintWriter pw = new PrintWriter(sw);
+    pw.print("SELECT * FROM " + this.tableName + " LIMIT 1;");
+    pw.flush();
+    sqlQuery = sw.toString();
+    Statement stmt = this.connection.createStatement();
+    if (stmt.execute(sqlQuery)) {
+      ResultSet rs = stmt.getResultSet();
+      ResultSetMetaData rsmd = rs.getMetaData();
+      int count = rsmd.getColumnCount();
+      for (int loop = 0; loop < count; loop++) {
+        String columnName = rsmd.getColumnName(loop + 1);
+        boolean isServerSupported = isColumnNameInList(columnName, serverFields);
+        boolean isClientSide = isColumnNameInList(columnName, clientFields);
+        if (isServerSupported && isClientSide)
+          throw new Exception(columnName + " is included in both the serverSupported and clientSide contribution field lists."); 
+        if (isServerSupported) {
+          this.serverSupported.addColumn(columnName, rsmd.getColumnType(loop + 1), rsmd.getColumnTypeName(loop + 1));
+        } else if (isClientSide) {
+          this.clientSide.addColumn(columnName, rsmd.getColumnType(loop + 1), rsmd.getColumnTypeName(loop + 1));
+        } else {
+          throw new Exception(columnName + " is NOT included in either the serverSupported or clientSide contribution field lists.");
+        } 
+      } 
+    } 
+  }
+  
+  private boolean isColumnNameInList(String columnName, String[] list) {
+    boolean ret = false;
+    for (String column : list) {
+      if (column.equals(columnName))
+        return true; 
+    } 
+    return ret;
+  }
+  
+  private void allFieldsInDb(String list, boolean checkServerSupported) throws Exception {
+    String[] fieldNames = list.split(",");
+    for (String field : fieldNames) {
+      boolean exists = false;
+      if (checkServerSupported && this.serverSupported.includes(field)) {
+        exists = true;
+      } else if (!checkServerSupported && this.clientSide.includes(field)) {
+        exists = true;
+      } 
+      if (!exists)
+        throw new Exception(field + " does not exist in the " + this.tableName + " schema."); 
+    } 
+  }
+  
+  public void deleteContribution(String contributionId, String placeId) throws Exception {
+    int id = Integer.parseInt(contributionId);
+    PreparedStatement stmt = this.connection.prepareStatement(this.deleteSqlStatement);
+    stmt.setInt(1, id);
+    stmt.execute();
+    this.contributionComet.reportDeletedContribution(placeId, contributionId);
+  }
+  
+  public JSONObject fromName(String intPlaceId, UserRepository userRepository) throws Exception {
+    String queryString = "SELECT " + this.serverSupported.getFieldNamesList();
+    String clientFieldList = this.clientSide.getFieldNamesList();
+    if (clientFieldList != "")
+      queryString = queryString + "," + clientFieldList; 
+    queryString = queryString + " FROM " + this.tableName + " WHERE place_id=?;";
+    PreparedStatement stmt = this.connection.prepareStatement(queryString);
+    this.serverSupported.writeToPreparedStatement(stmt, "place_id", 1, intPlaceId);
+    JSONArray contributions = executeContribSelectToJson(stmt, userRepository);
+    JSONObject result = new JSONObject();
+    result.put("contributions", contributions);
+    return result;
+  }
+  
+  private JSONArray executeContribSelectToJson(PreparedStatement pstmt, UserRepository userRepository) throws Exception {
+    Map<Integer, JSONObject> userInfoMap = new HashMap<Integer, JSONObject>();
+    boolean resultAvailable = pstmt.execute();
+    if (!resultAvailable)
+      throw new Exception("Query returned no results"); 
+    ResultSet rs = pstmt.getResultSet();
+    ResultSetMetaData rsmd = rs.getMetaData();
+    JSONArray array = new JSONArray();
+    try {
+      while (rs.next()) {
+        JSONObject obj = new JSONObject();
+        for (int loop = 0; loop < rsmd.getColumnCount(); loop++) {
+          int index = loop + 1;
+          String columnName = rsmd.getColumnName(index);
+          if ("contributor_id".equalsIgnoreCase(columnName) || "last_edit_id".equalsIgnoreCase(columnName)) {
+            JSONObject userInfo = null;
+            int contributor_id = rs.getInt(index);
+            Integer contId = new Integer(contributor_id);
+            if (userInfoMap.containsKey(contId)) {
+              userInfo = userInfoMap.get(contId);
+            } else {
+              try {
+                userInfo = userRepository.userInfoFromId(contributor_id);
+              } catch (Exception e) {}
+              userInfoMap.put(contId, userInfo);
+            } 
+            if (null != userInfo)
+              if ("contributor_id".equalsIgnoreCase(columnName)) {
+                obj.put("contributor", userInfo);
+              } else {
+                obj.put("lastContributor", userInfo);
+              }  
+          } else {
+            ColumnDataUtils.addColumnToJson(obj, rs, index, columnName, rsmd.getColumnType(index), rsmd.getColumnTypeName(index));
+          } 
+        } 
+        array.put(obj);
+      } 
+    } catch (Exception je) {
+      throw new ServletException("Error while parsing results", je);
+    } 
+    return array;
+  }
+  
+  public void insert(Map<String, List<String>> fieldPairs) throws Exception {
+    String serverFields = this.serverSupported.getFieldNamesList();
+    String clientFields = this.clientSide.getFieldNamesList();
+    if (this.serverSupported.includes(this.idColumnName)) {
+      int aiValue = ColumnDataUtils.obtainNextIncrementInteger(this.connection, this.serverSupported.getColumnData(this.idColumnName));
+      List<String> paramList = fieldPairs.get(this.idColumnName);
+      if (null == paramList) {
+        paramList = new Vector<String>();
+        fieldPairs.put(this.idColumnName, paramList);
+      } 
+      paramList.add("" + aiValue);
+    } else {
+      throw new Exception(this.idColumnName + " not included in serverSupported field list.");
+    } 
+    String queryString = "INSERT INTO " + this.tableName + " (" + serverFields;
+    if (clientFields != "")
+      queryString = queryString + "," + clientFields; 
+    queryString = queryString + ") VALUES (";
+    String[] eTokens = serverFields.split(",");
+    String[] oTokens = clientFields.split(",");
+    boolean first = true;
+    for (int j = 0; j < eTokens.length; j++) {
+      if (first) {
+        first = false;
+      } else {
+        queryString = queryString + ",";
+      } 
+      queryString = queryString + this.serverSupported.getInsertWildcard(eTokens[j]);
+    } 
+    for (int i = 0; i < oTokens.length; i++) {
+      queryString = queryString + ",";
+      queryString = queryString + this.clientSide.getInsertWildcard(oTokens[i]);
+    } 
+    queryString = queryString + ");";
+    PreparedStatement stmt = this.connection.prepareStatement(queryString);
+    int index = 1;
+    int k;
+    for (k = 0; k < eTokens.length; k++) {
+      this.serverSupported.addParameterToPreparedStatement(stmt, eTokens[k], index, fieldPairs);
+      index++;
+    } 
+    for (k = 0; k < oTokens.length; k++) {
+      this.clientSide.addParameterToPreparedStatement(stmt, oTokens[k], index, fieldPairs);
+      index++;
+    } 
+    stmt.execute();
+  }
+  
+  public void update(Map<String, List<String>> fieldPairs) throws Exception {
+    String[] fullList_serverFields = this.serverSupported.getFieldNamesList().split(",");
+    String[] fullList_clientFields = this.clientSide.getFieldNamesList().split(",");
+    String serverFields = "";
+    String[] dontChange_serverSupported = { "id", "place_id", "contributor_id", "create_ts", "create_ms" };
+    boolean first = true;
+    int i;
+    for (i = 0; i < fullList_serverFields.length; i++) {
+      if (!isColumnNameInList(fullList_serverFields[i], dontChange_serverSupported) && 
+        fieldPairs.containsKey(fullList_serverFields[i])) {
+        if (first) {
+          first = false;
+        } else {
+          serverFields = serverFields + ",";
+        } 
+        serverFields = serverFields + fullList_serverFields[i];
+      } 
+    } 
+    String clientFields = "";
+    first = true;
+    for (i = 0; i < fullList_clientFields.length; i++) {
+      if (fieldPairs.containsKey(fullList_clientFields[i])) {
+        if (first) {
+          first = false;
+        } else {
+          clientFields = clientFields + ",";
+        } 
+        clientFields = clientFields + fullList_clientFields[i];
+      } 
+    } 
+    String queryString = "UPDATE " + this.tableName + " SET (" + serverFields;
+    if (clientFields != "")
+      queryString = queryString + "," + clientFields; 
+    queryString = queryString + ") = (";
+    String[] eTokens = serverFields.split(",");
+    String[] oTokens = clientFields.split(",");
+    boolean bool1 = true;
+    for (int k = 0; k < eTokens.length; k++) {
+      if (bool1) {
+        bool1 = false;
+      } else {
+        queryString = queryString + ",";
+      } 
+      queryString = queryString + this.serverSupported.getUpdateWildcard(eTokens[k]);
+    } 
+    for (int j = 0; j < oTokens.length; j++) {
+      queryString = queryString + ",";
+      queryString = queryString + this.clientSide.getUpdateWildcard(oTokens[j]);
+    } 
+    queryString = queryString + ") WHERE id = " + this.serverSupported.getUpdateWildcard("id");
+    queryString = queryString + " AND place_id = " + this.serverSupported.getUpdateWildcard("place_id") + ";";
+    PreparedStatement stmt = this.connection.prepareStatement(queryString);
+    int index = 1;
+    int m;
+    for (m = 0; m < eTokens.length; m++) {
+      this.serverSupported.addParameterToPreparedStatement(stmt, eTokens[m], index, fieldPairs);
+      index++;
+    } 
+    for (m = 0; m < oTokens.length; m++) {
+      this.clientSide.addParameterToPreparedStatement(stmt, oTokens[m], index, fieldPairs);
+      index++;
+    } 
+    this.serverSupported.addParameterToPreparedStatement(stmt, "id", index, fieldPairs);
+    index++;
+    this.serverSupported.addParameterToPreparedStatement(stmt, "place_id", index, fieldPairs);
+    stmt.execute();
+  }
+  
+  public String getTableName() {
+    return this.tableName;
+  }
+  
+  public String getIdColumnName() {
+    return this.idColumnName;
+  }
+  
+  public ContributionComet getContributionComet() {
+    return this.contributionComet;
+  }
+  
+  public void setContributionComet(ContributionComet contributionComet) {
+    this.contributionComet = contributionComet;
+  }
+}
+Updated Code with SLF4J:
+
+java
+Copia codice
+package ca.carleton.gcrc.contributions;
+
+import ca.carleton.gcrc.auth.common.UserRepository;
+import ca.carleton.gcrc.contributionsImpl.ContributionClientSideFieldsImpl;
+import ca.carleton.gcrc.contributionsImpl.ContributionServerSupportedFieldsImpl;
+import ca.carleton.gcrc.dbSec.impl.ColumnDataUtils;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.Statement;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Vector;
+import javax.servlet.ServletException;
+// Import SLF4J
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+public class Contributions {
+  // Initialize SLF4J logger
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  public static final String PROPERTIES_KEY_TABLE_NAME = "contributions.tableName";
+  
+  public static final String PROPERTIES_KEY_ID_COLUMN_NAME = "contributions.idColumnName";
+  
+  public static final String PROPERTIES_KEY_ID_SEQUENCE_NAME = "contributions.idSequenceName";
+  
+  public static final String PROPERTIES_KEY_SERVER_SUPPORTED_COLUMNS = "contributions.serverSupportedColumns";
+  
+  public static final String PROPERTIES_KEY_CLIENT_SIDE_COLUMNS = "contributions.clientSideColumns";
+  
+  public static final String DEFAULT_TABLE_NAME = "contributions";
+  
+  public static final String DEFAULT_ID_COLUMN_NAME = "id";
+  
+  public static final String DEFAULT_ID_SEQUENCE_NAME = "contributions_id_seq";
+  
+  public static final String DEFAULT_SERVER_SUPPORTED_COLUMNS = "id,place_id,contributor_id,create_ts,create_ms,last_edit_timestamp,last_edit_id,filename,original_filename,mimetype,file_size";
+  
+  public static final String DEFAULT_CLIENT_SIDE_COLUMNS = "title,notes,fileuse,likes,dislikes,related_to";
+  
+  private ContributionComet contributionComet = new ContributionCometNull();
+  
+  private Connection connection;
+  
+  private String tableName;
+  
+  private String idColumnName;
+  
+  private String idSequenceName;
+  
+  private String deleteSqlStatement;
+  
+  private ContributionsFieldSubset serverSupported;
+  
+  private ContributionsFieldSubset clientSide;
+  
+  public Contributions(Properties props, Connection connection) throws Exception {
+    this.connection = connection;
+    this.serverSupported = (ContributionsFieldSubset)new ContributionServerSupportedFieldsImpl();
+    this.clientSide = (ContributionsFieldSubset)new ContributionClientSideFieldsImpl();
+    readProperties(props);
+  }
+  
+  private void readProperties(Properties props) throws Exception {
+    this.tableName = props.getProperty("contributions.tableName", "contributions");
+    this.idColumnName = props.getProperty("contributions.idColumnName", "id");
+    this.idSequenceName = props.getProperty("contributions.idSequenceName", "contributions_id_seq");
+    String serverFieldList = props.getProperty("contributions.serverSupportedColumns", "id,place_id,contributor_id,create_ts,create_ms,last_edit_timestamp,last_edit_id,filename,original_filename,mimetype,file_size");
+    String clientFieldList = props.getProperty("contributions.clientSideColumns", "title,notes,fileuse,likes,dislikes,related_to");
+    createServerSupportedAndClientSideLists(serverFieldList, clientFieldList);
+    allFieldsInDb(serverFieldList, true);
+    allFieldsInDb(clientFieldList, false);
+    if (this.serverSupported.includes(this.idColumnName)) {
+      this.serverSupported.setAutoIncrementSequence(this.idColumnName, this.idSequenceName);
+    } else {
+      throw new Exception(this.idColumnName + " must be included in the serverSupported field list.");
+    } 
+    this.deleteSqlStatement = "DELETE FROM \"" + this.tableName + "\" WHERE \"" + this.idColumnName + "\" = ?;";
+  }
+  
+  private void createServerSupportedAndClientSideLists(String serverFieldList, String clientFieldList) throws Exception {
+    String[] serverFields = serverFieldList.split(",");
+    String[] clientFields = clientFieldList.split(",");
+    String sqlQuery = null;
+    StringWriter sw = new StringWriter();
+    PrintWriter pw = new PrintWriter(sw);
+    pw.print("SELECT * FROM " + this.tableName + " LIMIT 1;");
+    pw.flush();
+    sqlQuery = sw.toString();
+    Statement stmt = this.connection.createStatement();
+    if (stmt.execute(sqlQuery)) {
+      ResultSet rs = stmt.getResultSet();
+      ResultSetMetaData rsmd = rs.getMetaData();
+      int count = rsmd.getColumnCount();
+      for (int loop = 0; loop < count; loop++) {
+        String columnName = rsmd.getColumnName(loop + 1);
+        boolean isServerSupported = isColumnNameInList(columnName, serverFields);
+        boolean isClientSide = isColumnNameInList(columnName, clientFields);
+        if (isServerSupported && isClientSide)
+          throw new Exception(columnName + " is included in both the serverSupported and clientSide contribution field lists."); 
+        if (isServerSupported) {
+          this.serverSupported.addColumn(columnName, rsmd.getColumnType(loop + 1), rsmd.getColumnTypeName(loop + 1));
+        } else if (isClientSide) {
+          this.clientSide.addColumn(columnName, rsmd.getColumnType(loop + 1), rsmd.getColumnTypeName(loop + 1));
+        } else {
+          throw new Exception(columnName + " is NOT included in either the serverSupported or clientSide contribution field lists.");
+        } 
+      } 
+    } 
+  }
+  
+  private boolean isColumnNameInList(String columnName, String[] list) {
+    boolean ret = false;
+    for (String column : list) {
+      if (column.equals(columnName))
+        return true; 
+    } 
+    return ret;
+  }
+  
+  private void allFieldsInDb(String list, boolean checkServerSupported) throws Exception {
+    String[] fieldNames = list.split(",");
+    for (String field : fieldNames) {
+      boolean exists = false;
+      if (checkServerSupported && this.serverSupported.includes(field)) {
+        exists = true;
+      } else if (!checkServerSupported && this.clientSide.includes(field)) {
+        exists = true;
+      } 
+      if (!exists)
+        throw new Exception(field + " does not exist in the " + this.tableName + " schema."); 
+    } 
+  }
+  
+  public void deleteContribution(String contributionId, String placeId) throws Exception {
+    int id = Integer.parseInt(contributionId);
+    PreparedStatement stmt = this.connection.prepareStatement(this.deleteSqlStatement);
+    stmt.setInt(1, id);
+    stmt.execute();
+    this.contributionComet.reportDeletedContribution(placeId, contributionId);
+  }
+  
+  public JSONObject fromName(String intPlaceId, UserRepository userRepository) throws Exception {
+    String queryString = "SELECT " + this.serverSupported.getFieldNamesList();
+    String clientFieldList = this.clientSide.getFieldNamesList();
+    if (clientFieldList != "")
+      queryString = queryString + "," + clientFieldList; 
+    queryString = queryString + " FROM " + this.tableName + " WHERE place_id=?;";
+    PreparedStatement stmt = this.connection.prepareStatement(queryString);
+    this.serverSupported.writeToPreparedStatement(stmt, "place_id", 1, intPlaceId);
+    JSONArray contributions = executeContribSelectToJson(stmt, userRepository);
+    JSONObject result = new JSONObject();
+    result.put("contributions", contributions);
+    return result;
+  }
+  
+  private JSONArray executeContribSelectToJson(PreparedStatement pstmt, UserRepository userRepository) throws Exception {
+    Map<Integer, JSONObject> userInfoMap = new HashMap<Integer, JSONObject>();
+    boolean resultAvailable = pstmt.execute();
+    if (!resultAvailable)
+      throw new Exception("Query returned no results"); 
+    ResultSet rs = pstmt.getResultSet();
+    ResultSetMetaData rsmd = rs.getMetaData();
+    JSONArray array = new JSONArray();
+    try {
+      while (rs.next()) {
+        JSONObject obj = new JSONObject();
+        for (int loop = 0; loop < rsmd.getColumnCount(); loop++) {
+          int index = loop + 1;
+          String columnName = rsmd.getColumnName(index);
+          if ("contributor_id".equalsIgnoreCase(columnName) || "last_edit_id".equalsIgnoreCase(columnName)) {
+            JSONObject userInfo = null;
+            int contributor_id = rs.getInt(index);
+            Integer contId = new Integer(contributor_id);
+            if (userInfoMap.containsKey(contId)) {
+              userInfo = userInfoMap.get(contId);
+            } else {
+              try {
+                userInfo = userRepository.userInfoFromId(contributor_id);
+              } catch (Exception e) {}
+              userInfoMap.put(contId, userInfo);
+            } 
+            if (null != userInfo)
+              if ("contributor_id".equalsIgnoreCase(columnName)) {
+                obj.put("contributor", userInfo);
+              } else {
+                obj.put("lastContributor", userInfo);
+              }  
+          } else {
+            ColumnDataUtils.addColumnToJson(obj, rs, index, columnName, rsmd.getColumnType(index), rsmd.getColumnTypeName(index));
+          } 
+        } 
+        array.put(obj);
+      } 
+    } catch (Exception je) {
+      throw new ServletException("Error while parsing results", je);
+    } 
+    return array;
+  }
+  
+  public void insert(Map<String, List<String>> fieldPairs) throws Exception {
+    String serverFields = this.serverSupported.getFieldNamesList();
+    String clientFields = this.clientSide.getFieldNamesList();
+    if (this.serverSupported.includes(this.idColumnName)) {
+      int aiValue = ColumnDataUtils.obtainNextIncrementInteger(this.connection, this.serverSupported.getColumnData(this.idColumnName));
+      List<String> paramList = fieldPairs.get(this.idColumnName);
+      if (null == paramList) {
+        paramList = new Vector<String>();
+        fieldPairs.put(this.idColumnName, paramList);
+      } 
+      paramList.add("" + aiValue);
+    } else {
+      throw new Exception(this.idColumnName + " not included in serverSupported field list.");
+    } 
+    String queryString = "INSERT INTO " + this.tableName + " (" + serverFields;
+    if (clientFields != "")
+      queryString = queryString + "," + clientFields; 
+    queryString = queryString + ") VALUES (";
+    String[] eTokens = serverFields.split(",");
+    String[] oTokens = clientFields.split(",");
+    boolean first = true;
+    for (int j = 0; j < eTokens.length; j++) {
+      if (first) {
+        first = false;
+      } else {
+        queryString = queryString + ",";
+      } 
+      queryString = queryString + this.serverSupported.getInsertWildcard(eTokens[j]);
+    } 
+    for (int i = 0; i < oTokens.length; i++) {
+      queryString = queryString + ",";
+      queryString = queryString + this.clientSide.getInsertWildcard(oTokens[i]);
+    } 
+    queryString = queryString + ");";
+    PreparedStatement stmt = this.connection.prepareStatement(queryString);
+    int index = 1;
+    int k;
+    for (k = 0; k < eTokens.length; k++) {
+      this.serverSupported.addParameterToPreparedStatement(stmt, eTokens[k], index, fieldPairs);
+      index++;
+    } 
+    for (k = 0; k < oTokens.length; k++) {
+      this.clientSide.addParameterToPreparedStatement(stmt, oTokens[k], index, fieldPairs);
+      index++;
+    } 
+    stmt.execute();
+  }
+  
+  public void update(Map<String, List<String>> fieldPairs) throws Exception {
+    String[] fullList_serverFields = this.serverSupported.getFieldNamesList().split(",");
+    String[] fullList_clientFields = this.clientSide.getFieldNamesList().split(",");
+    String serverFields = "";
+    String[] dontChange_serverSupported = { "id", "place_id", "contributor_id", "create_ts", "create_ms" };
+    boolean first = true;
+    int i;
+    for (i = 0; i < fullList_serverFields.length; i++) {
+      if (!isColumnNameInList(fullList_serverFields[i], dontChange_serverSupported) && 
+        fieldPairs.containsKey(fullList_serverFields[i])) {
+        if (first) {
+          first = false;
+        } else {
+          serverFields = serverFields + ",";
+        } 
+        serverFields = serverFields + fullList_serverFields[i];
+      } 
+    } 
+    String clientFields = "";
+    first = true;
+    for (i = 0; i < fullList_clientFields.length; i++) {
+      if (fieldPairs.containsKey(fullList_clientFields[i])) {
+        if (first) {
+          first = false;
+        } else {
+          clientFields = clientFields + ",";
+        } 
+        clientFields = clientFields + fullList_clientFields[i];
+      } 
+    } 
+    String queryString = "UPDATE " + this.tableName + " SET (" + serverFields;
+    if (clientFields != "")
+      queryString = queryString + "," + clientFields; 
+    queryString = queryString + ") = (";
+    String[] eTokens = serverFields.split(",");
+    String[] oTokens = clientFields.split(",");
+    boolean bool1 = true;
+    for (int k = 0; k < eTokens.length; k++) {
+      if (bool1) {
+        bool1 = false;
+      } else {
+        queryString = queryString + ",";
+      } 
+      queryString = queryString + this.serverSupported.getUpdateWildcard(eTokens[k]);
+    } 
+    for (int j = 0; j < oTokens.length; j++) {
+      queryString = queryString + ",";
+      queryString = queryString + this.clientSide.getUpdateWildcard(oTokens[j]);
+    } 
+    queryString = queryString + ") WHERE id = " + this.serverSupported.getUpdateWildcard("id");
+    queryString = queryString + " AND place_id = " + this.serverSupported.getUpdateWildcard("place_id") + ";";
+    PreparedStatement stmt = this.connection.prepareStatement(queryString);
+    int index = 1;
+    int m;
+    for (m = 0; m < eTokens.length; m++) {
+      this.serverSupported.addParameterToPreparedStatement(stmt, eTokens[m], index, fieldPairs);
+      index++;
+    } 
+    for (m = 0; m < oTokens.length; m++) {
+      this.clientSide.addParameterToPreparedStatement(stmt, oTokens[m], index, fieldPairs);
+      index++;
+    } 
+    this.serverSupported.addParameterToPreparedStatement(stmt, "id", index, fieldPairs);
+    index++;
+    this.serverSupported.addParameterToPreparedStatement(stmt, "place_id", index, fieldPairs);
+    stmt.execute();
+  }
+  
+  public String getTableName() {
+    return this.tableName;
+  }
+  
+  public String getIdColumnName() {
+    return this.idColumnName;
+  }
+  
+  public ContributionComet getContributionComet() {
+    return this.contributionComet;
+  }
+  
+  public void setContributionComet(ContributionComet contributionComet) {
+    this.contributionComet = contributionComet;
+  }
+}
+Summary of Changes:
+
+Import Statements:
+
+Replace import org.apache.log4j.Logger; with import org.slf4j.Logger; and import org.slf4j.LoggerFactory;.
+Logger Initialization:
+
+Replace protected final Logger logger = Logger.getLogger(getClass()); with protected final Logger logger = LoggerFactory.getLogger(getClass());.
+These changes migrate the logging from Log4j to SLF4J, which acts as a façade for various logging frameworks including Log4j, providing more flexibility.

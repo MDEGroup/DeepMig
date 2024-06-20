@@ -1,0 +1,206 @@
+To migrate the given class from Log4j to SLF4J, you need to replace the Log4j-specific imports and logger initialization with their SLF4J equivalents. Here are the specific changes highlighted with comments:
+
+Original Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.onUpload;
+
+import ca.carleton.gcrc.contributions.ContributionComet;
+import ca.carleton.gcrc.contributions.ContributionCometImpl;
+import ca.carleton.gcrc.contributions.ContributionCometNull;
+import ca.carleton.gcrc.contributions.Contributions;
+import ca.carleton.gcrc.progress.ProgressTracker;
+import ca.carleton.gcrc.progress.ProgressTrackerSingleton;
+import ca.carleton.gcrc.upload.LoadedFile;
+import ca.carleton.gcrc.upload.OnUploadedListener;
+import java.security.Principal;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import javax.servlet.ServletContext;
+import javax.servlet.ServletException;
+import javax.servlet.http.Cookie;
+// Import Log4j
+import org.apache.log4j.Logger;
+import org.json.JSONObject;
+
+public class OnUpload implements OnUploadedListener {
+  // Initialize Log4j logger
+  protected final Logger logger = Logger.getLogger(getClass());
+  
+  private ContributionComet cometChannel = (ContributionComet)new ContributionCometNull();
+  
+  private Contributions contributions;
+  
+  private ProgressTracker progressTracker;
+  
+  public OnUpload() {
+    this.progressTracker = ProgressTrackerSingleton.getSingleton();
+  }
+  
+  public OnUpload(ServletContext servletContext) throws ServletException {
+    this.progressTracker = ProgressTrackerSingleton.getSingleton();
+    this.cometChannel = (ContributionComet)new ContributionCometImpl(servletContext);
+  }
+  
+  public Contributions getContributions() {
+    return this.contributions;
+  }
+  
+  public void setContributions(Contributions contributions) {
+    this.contributions = contributions;
+  }
+  
+  public JSONObject onLoad(String progressId, List<LoadedFile> uploadedFiles, Map<String, List<String>> parameters, Principal userPrincipal, Cookie[] cookies) throws Exception {
+    JSONObject results = new JSONObject();
+    if (uploadedFiles.size() > 0) {
+      JSONObject uploadedObj = new JSONObject();
+      results.put("uploaded", uploadedObj);
+      Iterator<LoadedFile> itLoadedFile = uploadedFiles.iterator();
+      while (itLoadedFile.hasNext()) {
+        LoadedFile loadedFile = itLoadedFile.next();
+        this.logger.info("Loaded file " + loadedFile.getOriginalFileName() + " to " + loadedFile.getFile().getName());
+        UploadedFileInfo fileInfo = new UploadedFileInfo();
+        fileInfo.setOriginalFilename(loadedFile.getOriginalFileName());
+        fileInfo.setUploadedFile(loadedFile.getFile());
+        ProcessFileThread t = new ProcessFileThread(fileInfo, progressId, parameters, this.cometChannel, userPrincipal, this.contributions, this.progressTracker);
+        t.start();
+        JSONObject fileObj = new JSONObject();
+        fileObj.put("chained", t.getProgressId());
+        uploadedObj.put(loadedFile.getFile().getName(), fileObj);
+      } 
+    } else {
+      ContributionHandler t = new ContributionHandler(parameters, userPrincipal);
+      List<String> vec = parameters.get("isUpdate");
+      if (null == vec)
+        throw new Exception("Required isUpdate parameter undefined."); 
+      if ("true".equalsIgnoreCase(vec.get(0))) {
+        t.performDatabaseUpdate(this.contributions);
+      } else {
+        t.performDatabaseInsert(this.contributions);
+      } 
+      if (null != progressId && parameters.containsKey("place_id") && ((List)parameters.get("place_id")).size() > 0) {
+        HashMap<String, String> map = new HashMap<String, String>();
+        map.put("place_id", ((List<String>)parameters.get("place_id")).get(0));
+        this.progressTracker.updateProgressData(progressId, map);
+      } 
+      if (parameters.containsKey("place_id") && ((List)parameters.get("place_id")).size() > 0)
+        this.cometChannel.reportNewContribution(((List<String>)parameters.get("place_id")).get(0), null); 
+    } 
+    return results;
+  }
+}
+Highlighted Changes:
+
+Import the SLF4J logger:
+
+java
+Copia codice
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+Replace the Log4j logger initialization with SLF4J:
+
+java
+Copia codice
+// protected final Logger logger = Logger.getLogger(getClass());
+protected final Logger logger = LoggerFactory.getLogger(getClass());
+Updated Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.onUpload;
+
+import ca.carleton.gcrc.contributions.ContributionComet;
+import ca.carleton.gcrc.contributions.ContributionCometImpl;
+import ca.carleton.gcrc.contributions.ContributionCometNull;
+import ca.carleton.gcrc.contributions.Contributions;
+import ca.carleton.gcrc.progress.ProgressTracker;
+import ca.carleton.gcrc.progress.ProgressTrackerSingleton;
+import ca.carleton.gcrc.upload.LoadedFile;
+import ca.carleton.gcrc.upload.OnUploadedListener;
+import java.security.Principal;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import javax.servlet.ServletContext;
+import javax.servlet.ServletException;
+import javax.servlet.http.Cookie;
+// Import SLF4J
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.json.JSONObject;
+
+public class OnUpload implements OnUploadedListener {
+  // Initialize SLF4J logger
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private ContributionComet cometChannel = (ContributionComet)new ContributionCometNull();
+  
+  private Contributions contributions;
+  
+  private ProgressTracker progressTracker;
+  
+  public OnUpload() {
+    this.progressTracker = ProgressTrackerSingleton.getSingleton();
+  }
+  
+  public OnUpload(ServletContext servletContext) throws ServletException {
+    this.progressTracker = ProgressTrackerSingleton.getSingleton();
+    this.cometChannel = (ContributionComet)new ContributionCometImpl(servletContext);
+  }
+  
+  public Contributions getContributions() {
+    return this.contributions;
+  }
+  
+  public void setContributions(Contributions contributions) {
+    this.contributions = contributions;
+  }
+  
+  public JSONObject onLoad(String progressId, List<LoadedFile> uploadedFiles, Map<String, List<String>> parameters, Principal userPrincipal, Cookie[] cookies) throws Exception {
+    JSONObject results = new JSONObject();
+    if (uploadedFiles.size() > 0) {
+      JSONObject uploadedObj = new JSONObject();
+      results.put("uploaded", uploadedObj);
+      Iterator<LoadedFile> itLoadedFile = uploadedFiles.iterator();
+      while (itLoadedFile.hasNext()) {
+        LoadedFile loadedFile = itLoadedFile.next();
+        this.logger.info("Loaded file " + loadedFile.getOriginalFileName() + " to " + loadedFile.getFile().getName());
+        UploadedFileInfo fileInfo = new UploadedFileInfo();
+        fileInfo.setOriginalFilename(loadedFile.getOriginalFileName());
+        fileInfo.setUploadedFile(loadedFile.getFile());
+        ProcessFileThread t = new ProcessFileThread(fileInfo, progressId, parameters, this.cometChannel, userPrincipal, this.contributions, this.progressTracker);
+        t.start();
+        JSONObject fileObj = new JSONObject();
+        fileObj.put("chained", t.getProgressId());
+        uploadedObj.put(loadedFile.getFile().getName(), fileObj);
+      } 
+    } else {
+      ContributionHandler t = new ContributionHandler(parameters, userPrincipal);
+      List<String> vec = parameters.get("isUpdate");
+      if (null == vec)
+        throw new Exception("Required isUpdate parameter undefined."); 
+      if ("true".equalsIgnoreCase(vec.get(0))) {
+        t.performDatabaseUpdate(this.contributions);
+      } else {
+        t.performDatabaseInsert(this.contributions);
+      } 
+      if (null != progressId && parameters.containsKey("place_id") && ((List)parameters.get("place_id")).size() > 0) {
+        HashMap<String, String> map = new HashMap<String, String>();
+        map.put("place_id", ((List<String>)parameters.get("place_id")).get(0));
+        this.progressTracker.updateProgressData(progressId, map);
+      } 
+      if (parameters.containsKey("place_id") && ((List)parameters.get("place_id")).size() > 0)
+        this.cometChannel.reportNewContribution(((List<String>)parameters.get("place_id")).get(0), null); 
+    } 
+    return results;
+  }
+}
+Summary of Changes:
+
+Imported SLF4J Logger and LoggerFactory.
+Replaced the Log4j logger initialization with SLF4J's LoggerFactory.getLogger.
+Adjusted the type of the logger variable to org.slf4j.Logger.

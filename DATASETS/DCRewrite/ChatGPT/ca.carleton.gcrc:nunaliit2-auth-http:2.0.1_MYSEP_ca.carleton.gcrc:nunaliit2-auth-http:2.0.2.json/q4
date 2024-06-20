@@ -1,0 +1,318 @@
+To migrate from Log4j to SLF4J, you need to replace the Log4j-specific imports and logger initialization with their SLF4J equivalents. Here are the specific changes highlighted:
+
+Original Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.auth;
+
+import ca.carleton.gcrc.auth.common.AuthHttpServletRequest;
+import ca.carleton.gcrc.auth.common.AuthenticationUtils;
+import ca.carleton.gcrc.auth.common.User;
+import ca.carleton.gcrc.auth.common.UserRepository;
+import ca.carleton.gcrc.auth.common.UserRepositorySingleton;
+import java.io.IOException;
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import org.apache.log4j.Logger;
+
+public class AuthFilter implements Filter {
+  private static final String defaultRealm = "olkit";
+  
+  protected final Logger logger = Logger.getLogger(getClass());
+  
+  private UserRepository userRepository;
+  
+  private String realm = "olkit";
+  
+  private boolean allowAnonymous = false;
+  
+  private boolean allowUser = false;
+  
+  private boolean allowAdmin = true;
+  
+  public void init(FilterConfig config) throws ServletException {
+    try {
+      this.userRepository = UserRepositorySingleton.getSingleton();
+    } catch (Exception e) {
+      this.logger.error("Error while connecting to database", e);
+      throw new ServletException("Error while connecting to database", e);
+    } 
+    String value = config.getInitParameter("anonymous");
+    if (null != value) {
+      int intValue = Integer.parseInt(value);
+      this.allowAnonymous = (0 != intValue);
+    } 
+    value = config.getInitParameter("user");
+    if (null != value) {
+      int intValue = Integer.parseInt(value);
+      this.allowUser = (0 != intValue);
+    } 
+    value = config.getInitParameter("admin");
+    if (null != value) {
+      int intValue = Integer.parseInt(value);
+      this.allowAdmin = (0 != intValue);
+    } 
+    value = config.getInitParameter("realm");
+    if (null != value)
+      this.realm = value; 
+  }
+  
+  public void destroy() {
+    if (null != this.userRepository)
+      this.userRepository.destroy(); 
+  }
+  
+  public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain chain) throws IOException, ServletException {
+    boolean likeResponseType = false;
+    HttpServletResponse response = null;
+    if (servletResponse instanceof HttpServletResponse) {
+      likeResponseType = true;
+      response = (HttpServletResponse)servletResponse;
+    } 
+    if (servletRequest instanceof AuthHttpServletRequest && likeResponseType) {
+      AuthHttpServletRequest request = (AuthHttpServletRequest)servletRequest;
+      try {
+        checkAuthentication((HttpServletRequest)request, response, chain);
+      } catch (Exception e) {
+        throw new ServletException("Error while filtering AuthHttpServletRequest", e);
+      } 
+    } else if (servletRequest instanceof HttpServletRequest && likeResponseType) {
+      HttpServletRequest request = (HttpServletRequest)servletRequest;
+      try {
+        checkAuthentication(request, response, chain);
+      } catch (Exception e) {
+        throw new ServletException("Error while filtering HttpServletRequest", e);
+      } 
+    } else {
+      this.logger.info("Skip filtering request because it is not HTTP");
+      chain.doFilter(servletRequest, servletResponse);
+    } 
+  }
+  
+  private void checkAndDispatch(User user, HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
+    boolean allowed = false;
+    if (this.allowAnonymous && user.isAnonymous()) {
+      allowed = true;
+    } else if (this.allowAdmin && user.isAdmin()) {
+      allowed = true;
+    } else if (this.allowUser && !user.isAdmin() && !user.isAnonymous()) {
+      allowed = true;
+    } 
+    if (allowed) {
+      chain.doFilter((ServletRequest)request, (ServletResponse)response);
+    } else {
+      this.logger.info("User denied access (" + user + ")");
+      AuthenticationUtils.sendAuthRequiredError(response, this.realm);
+    } 
+  }
+  
+  private void checkAuthentication(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws Exception {
+    String[] userNameAndPassword = null;
+    User user = null;
+    if (request instanceof AuthHttpServletRequest) {
+      user = AuthenticationUtils.getUserFromRequest(request);
+      checkAndDispatch(user, request, response, chain);
+    } else {
+      String auth = request.getHeader("Authorization");
+      this.logger.info("Authorization: " + auth);
+      if (null == auth) {
+        AuthenticationUtils.sendAuthRequiredError(response, this.realm);
+        return;
+      } 
+      try {
+        userNameAndPassword = AuthenticationUtils.getUserNameAndPassword(auth);
+      } catch (Exception e) {
+        throw new ServletException("Unable to acquire user", e);
+      } 
+      try {
+        user = this.userRepository.authenticate(userNameAndPassword[0], userNameAndPassword[1]);
+      } catch (Exception e) {
+        this.logger.info("Failed to authenticate user", e);
+        AuthenticationUtils.sendAuthRequiredError(response, this.realm);
+      } 
+      this.logger.info("user: " + user);
+      String userJson = AuthenticationUtils.userToCookieString(true, user);
+      Cookie cookie = new Cookie("nunaliit-auth", userJson);
+      cookie.setPath("/");
+      response.addCookie(cookie);
+      checkAndDispatch(user, (HttpServletRequest)new AuthHttpServletRequest(request, user), response, chain);
+    } 
+  }
+}
+Updated Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.auth;
+
+import ca.carleton.gcrc.auth.common.AuthHttpServletRequest;
+import ca.carleton.gcrc.auth.common.AuthenticationUtils;
+import ca.carleton.gcrc.auth.common.User;
+import ca.carleton.gcrc.auth.common.UserRepository;
+import ca.carleton.gcrc.auth.common.UserRepositorySingleton;
+import java.io.IOException;
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+// **Change from Log4j to SLF4J**
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class AuthFilter implements Filter {
+  private static final String defaultRealm = "olkit";
+  
+  // **Change from Log4j to SLF4J**
+  // protected final Logger logger = Logger.getLogger(getClass());
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private UserRepository userRepository;
+  
+  private String realm = "olkit";
+  
+  private boolean allowAnonymous = false;
+  
+  private boolean allowUser = false;
+  
+  private boolean allowAdmin = true;
+  
+  public void init(FilterConfig config) throws ServletException {
+    try {
+      this.userRepository = UserRepositorySingleton.getSingleton();
+    } catch (Exception e) {
+      // **Change from Log4j to SLF4J**
+      // this.logger.error("Error while connecting to database", e);
+      this.logger.error("Error while connecting to database", e);
+      throw new ServletException("Error while connecting to database", e);
+    } 
+    String value = config.getInitParameter("anonymous");
+    if (null != value) {
+      int intValue = Integer.parseInt(value);
+      this.allowAnonymous = (0 != intValue);
+    } 
+    value = config.getInitParameter("user");
+    if (null != value) {
+      int intValue = Integer.parseInt(value);
+      this.allowUser = (0 != intValue);
+    } 
+    value = config.getInitParameter("admin");
+    if (null != value) {
+      int intValue = Integer.parseInt(value);
+      this.allowAdmin = (0 != intValue);
+    } 
+    value = config.getInitParameter("realm");
+    if (null != value)
+      this.realm = value; 
+  }
+  
+  public void destroy() {
+    if (null != this.userRepository)
+      this.userRepository.destroy(); 
+  }
+  
+  public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain chain) throws IOException, ServletException {
+    boolean likeResponseType = false;
+    HttpServletResponse response = null;
+    if (servletResponse instanceof HttpServletResponse) {
+      likeResponseType = true;
+      response = (HttpServletResponse)servletResponse;
+    } 
+    if (servletRequest instanceof AuthHttpServletRequest && likeResponseType) {
+      AuthHttpServletRequest request = (AuthHttpServletRequest)servletRequest;
+      try {
+        checkAuthentication((HttpServletRequest)request, response, chain);
+      } catch (Exception e) {
+        throw new ServletException("Error while filtering AuthHttpServletRequest", e);
+      } 
+    } else if (servletRequest instanceof HttpServletRequest && likeResponseType) {
+      HttpServletRequest request = (HttpServletRequest)servletRequest;
+      try {
+        checkAuthentication(request, response, chain);
+      } catch (Exception e) {
+        throw new ServletException("Error while filtering HttpServletRequest", e);
+      } 
+    } else {
+      // **Change from Log4j to SLF4J**
+      // this.logger.info("Skip filtering request because it is not HTTP");
+      this.logger.info("Skip filtering request because it is not HTTP");
+      chain.doFilter(servletRequest, servletResponse);
+    } 
+  }
+  
+  private void checkAndDispatch(User user, HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
+    boolean allowed = false;
+    if (this.allowAnonymous && user.isAnonymous()) {
+      allowed = true;
+    } else if (this.allowAdmin && user.isAdmin()) {
+      allowed = true;
+    } else if (this.allowUser && !user.isAdmin() && !user.isAnonymous()) {
+      allowed = true;
+    } 
+    if (allowed) {
+      chain.doFilter((ServletRequest)request, (ServletResponse)response);
+    } else {
+      // **Change from Log4j to SLF4J**
+      // this.logger.info("User denied access (" + user + ")");
+      this.logger.info("User denied access ({})", user);
+      AuthenticationUtils.sendAuthRequiredError(response, this.realm);
+    } 
+  }
+  
+  private void checkAuthentication(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws Exception {
+    String[] userNameAndPassword = null;
+    User user = null;
+    if (request instanceof AuthHttpServletRequest) {
+      user = AuthenticationUtils.getUserFromRequest(request);
+      checkAndDispatch(user, request, response, chain);
+    } else {
+      String auth = request.getHeader("Authorization");
+      // **Change from Log4j to SLF4J**
+      // this.logger.info("Authorization: " + auth);
+      this.logger.info("Authorization: {}", auth);
+      if (null == auth) {
+        AuthenticationUtils.sendAuthRequiredError(response, this.realm);
+        return;
+      } 
+      try {
+        userNameAndPassword = AuthenticationUtils.getUserNameAndPassword(auth);
+      } catch (Exception e) {
+        throw new ServletException("Unable to acquire user", e);
+      } 
+      try {
+        user = this.userRepository.authenticate(userNameAndPassword[0], userNameAndPassword[1]);
+      } catch (Exception e) {
+        // **Change from Log4j to SLF4J**
+        // this.logger.info("Failed to authenticate user", e);
+        this.logger.info("Failed to authenticate user", e);
+        AuthenticationUtils.sendAuthRequiredError(response, this.realm);
+      } 
+      // **Change from Log4j to SLF4J**
+      // this.logger.info("user: " + user);
+      this.logger.info("user: {}", user);
+      String userJson = AuthenticationUtils.userToCookieString(true, user);
+      Cookie cookie = new Cookie("nunaliit-auth", userJson);
+      cookie.setPath("/");
+      response.addCookie(cookie);
+      checkAndDispatch(user, (HttpServletRequest)new AuthHttpServletRequest(request, user), response, chain);
+    } 
+  }
+}
+Summary of Changes:
+Imports: Changed import org.apache.log4j.Logger; to import org.slf4j.Logger; and import org.slf4j.LoggerFactory;.
+Logger Initialization: Changed Logger.getLogger(getClass()); to LoggerFactory.getLogger(getClass());.
+Logging Statements: Updated logging statements to use SLF4J's placeholder-based logging.
+These changes will migrate your class from Log4j to SLF4J. Make sure to update the dependencies in your pom.xml as described earlier and test your application thoroughly to ensure that logging works as expected.

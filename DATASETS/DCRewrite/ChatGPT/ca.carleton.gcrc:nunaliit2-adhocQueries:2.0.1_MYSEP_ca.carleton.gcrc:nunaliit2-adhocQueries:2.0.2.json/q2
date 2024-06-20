@@ -1,0 +1,208 @@
+To migrate from Log4j to SLF4J, you need to update the import statements, logger initialization, and logging method calls. Below are the changes highlighted in the given class:
+
+java
+Copia codice
+package ca.carleton.gcrc.AdhocQueries;
+
+import ca.carleton.gcrc.AdhocQueriesImpl.AdhocQuerySpecImpl;
+import ca.carleton.gcrc.dbSec.ColumnData;
+import ca.carleton.gcrc.dbSec.impl.ColumnDataUtils;
+import ca.carleton.gcrc.jdbc.JdbcConnections;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.util.Date;
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+// Update import statement to use SLF4J
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.json.JSONObject;
+
+public class AdhocQueriesServlet extends HttpServlet {
+  private static final long serialVersionUID = 1L;
+  
+  // Update logger initialization to use SLF4J
+  // protected final Logger logger = Logger.getLogger(getClass());
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private JdbcConnections connections = null;
+  
+  Connection connection = null;
+  
+  AdhocQueries queries = null;
+  
+  public void init(ServletConfig config) throws ServletException {
+    super.init(config);
+    try {
+      this.connections = JdbcConnections.connectionsFromServletContext(config.getServletContext());
+      this.connection = this.connections.getDb();
+    } catch (Exception e) {
+      throw new ServletException("Error while connecting to database", e);
+    } 
+    this.queries = new AdhocQueries(this.connection);
+  }
+  
+  public void destroy() {
+    this.connections.closeAllConnections();
+  }
+  
+  protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    doPost(request, response);
+  }
+  
+  protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    String[] paths = request.getRequestURI().split("/");
+    String path = paths[paths.length - 1];
+    // Update logging method call to use SLF4J
+    // this.logger.info(getClass().getName() + " " + path);
+    this.logger.info("{} {}", getClass().getName(), path);
+    try {
+      if ("query".equalsIgnoreCase(path)) {
+        performQuery(request, response);
+      } else {
+        throw new Exception("Unknown request: " + path);
+      } 
+    } catch (Exception e) {
+      sendErrorResponse(response, e);
+      // Update logging method call to use SLF4J
+      // this.logger.error("Error while performing search", e);
+      this.logger.error("Error while performing search", e);
+    } 
+  }
+  
+  protected void performQuery(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    String queryId = null;
+    String[] stringIds = request.getParameterValues("id");
+    if (null != stringIds) {
+      if (stringIds.length > 1)
+        throw new Exception("Parameter 'id' provided multiple times"); 
+      if (stringIds.length == 1)
+        queryId = stringIds[0]; 
+    } 
+    String queryLabel = null;
+    String[] labels = request.getParameterValues("label");
+    if (null != labels) {
+      if (labels.length > 1)
+        throw new Exception("Parameter 'label' provided multiple times"); 
+      if (labels.length == 1)
+        queryLabel = labels[0]; 
+    } 
+    int count = 0;
+    if (null != queryId)
+      count++; 
+    if (null != queryLabel)
+      count++; 
+    if (1 != count)
+      throw new Exception("Exactly one of 'id' or 'label' must be provided."); 
+    String[] args = request.getParameterValues("args");
+    if (null == args || args.length < 1) {
+      args = new String[] { "" };
+    } else if (args.length > 1) {
+      throw new Exception("Parameter 'args' provided multiple times");
+    } 
+    AdhocQuerySpec spec = null;
+    if (null != queryId) {
+      spec = getQuerySpecFromId(queryId);
+    } else if (null != queryLabel) {
+      spec = getQuerySpecFromLabel(queryLabel);
+    } else {
+      throw new Exception("Can not retrieve adhocQuery. Method is broken.");
+    } 
+    // Update logging method call to use SLF4J
+    // this.logger.info("Using adhocQuery id: " + spec.getId() + "  label: " + spec.getLabel());
+    this.logger.info("Using adhocQuery id: {} label: {}", spec.getId(), spec.getLabel());
+    JSONObject result = this.queries.performAdhocQueryWithArgs(spec.getQueryString(), args[0], spec.getExpectedArgCount());
+    sendJsonResponse(response, result);
+  }
+  
+  private AdhocQuerySpec getQuerySpecFromId(String id) throws Exception {
+    PreparedStatement stmt = this.connection.prepareStatement("SELECT id,label,stmt FROM adhoc_queries WHERE id = ?;");
+    ColumnDataUtils.writeToPreparedStatement(stmt, 1, id, ColumnData.Type.INTEGER);
+    boolean resultAvailable = stmt.execute();
+    if (!resultAvailable)
+      throw new Exception("Query " + id + " not found."); 
+    ResultSet rs = stmt.getResultSet();
+    if (!rs.next())
+      throw new Exception("Query " + id + " not returned (but result also not marked as empty)."); 
+    int responseId = rs.getInt(1);
+    String responseLabel = rs.getString(2);
+    String qString = rs.getString(3);
+    return (AdhocQuerySpec)new AdhocQuerySpecImpl(responseId, responseLabel, qString);
+  }
+  
+  private AdhocQuerySpec getQuerySpecFromLabel(String label) throws Exception {
+    PreparedStatement stmt = this.connection.prepareStatement("SELECT id,label,stmt FROM adhoc_queries WHERE label = ?;");
+    ColumnDataUtils.writeToPreparedStatement(stmt, 1, label, ColumnData.Type.STRING);
+    boolean resultAvailable = stmt.execute();
+    if (!resultAvailable)
+      throw new Exception("Adhoc query associated with label '" + label + "' not found."); 
+    ResultSet rs = stmt.getResultSet();
+    if (!rs.next())
+      throw new Exception("Adhoc query associated with label '" + label + "' not returned (but result also not marked as empty)."); 
+    int responseId = rs.getInt(1);
+    String responseLabel = rs.getString(2);
+    String qString = rs.getString(3);
+    return (AdhocQuerySpec)new AdhocQuerySpecImpl(responseId, responseLabel, qString);
+  }
+  
+  protected void sendJsonResponse(HttpServletResponse response, JSONObject result) throws ServletException {
+    response.setStatus(200);
+    response.setHeader("Cache-Control", "no-cache");
+    response.setDateHeader("Expires", (new Date()).getTime());
+    response.setContentType("text/plain");
+    response.setCharacterEncoding("utf-8");
+    try {
+      OutputStreamWriter osw = new OutputStreamWriter((OutputStream)response.getOutputStream(), "UTF-8");
+      result.write(osw);
+      osw.flush();
+    } catch (Exception e) {
+      throw new ServletException("Failure generating error", e);
+    } 
+  }
+  
+  protected void sendErrorResponse(HttpServletResponse response, Throwable error) throws ServletException {
+    response.setStatus(500);
+    response.setHeader("Cache-Control", "no-cache");
+    response.setDateHeader("Expires", (new Date()).getTime());
+    response.setContentType("text/plain");
+    response.setCharacterEncoding("utf-8");
+    try {
+      JSONObject result = new JSONObject();
+      result.put("error", errorToJson(error));
+      OutputStreamWriter osw = new OutputStreamWriter((OutputStream)response.getOutputStream(), "UTF-8");
+      result.write(osw);
+      osw.flush();
+    } catch (Exception e) {
+      throw new ServletException("Failure generating error", e);
+    } 
+  }
+  
+  protected JSONObject errorToJson(Throwable error) throws Exception {
+    JSONObject errorObj = new JSONObject();
+    errorObj.put("message", error.getMessage());
+    if (null != error.getCause())
+      errorObj.put("cause", errorToJson(error.getCause())); 
+    return errorObj;
+  }
+}
+Summary of Changes:
+Import Statements:
+
+Replace import org.apache.log4j.Logger; with import org.slf4j.Logger; and import org.slf4j.LoggerFactory;.
+Logger Initialization:
+
+Replace protected final Logger logger = Logger.getLogger(getClass()); with protected final Logger logger = LoggerFactory.getLogger(getClass());.
+Logging Method Calls:
+
+Update logging method calls to use SLF4J. For example:
+this.logger.info(getClass().getName() + " " + path); is changed to this.logger.info("{} {}", getClass().getName(), path);.
+this.logger.info("Using adhocQuery id: " + spec.getId() + " label: " + spec.getLabel()); is changed to this.logger.info("Using adhocQuery id: {} label: {}", spec.getId(), spec.getLabel());.
+`this.logger.error("Error while performing search",

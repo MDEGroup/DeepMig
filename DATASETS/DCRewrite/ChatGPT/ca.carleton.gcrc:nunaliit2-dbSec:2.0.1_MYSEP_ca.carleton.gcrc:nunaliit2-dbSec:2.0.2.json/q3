@@ -1,0 +1,280 @@
+To migrate from Log4j to SLF4J, you need to replace the Log4j-specific imports and logger initialization with their SLF4J equivalents. Here are the specific changes highlighted:
+
+Original Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.dbSec.impl;
+
+import ca.carleton.gcrc.dbSec.ColumnData;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.Time;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import javax.servlet.ServletException;
+// **Change from Log4j to SLF4J**
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+public class ColumnDataUtils {
+  // **Change from Log4j to SLF4J**
+  // protected static final Logger logger = Logger.getLogger("ca.carleton.gcrc.dbSec.impl.ColumnDataUtils");
+  protected static final Logger logger = LoggerFactory.getLogger(ColumnDataUtils.class);
+  
+  private static SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd");
+  
+  private static SimpleDateFormat tsFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+  
+  private static SimpleDateFormat timeFormatter = new SimpleDateFormat("HH:mm:ss");
+  
+  public static ColumnData.Type columnDataTypeFromSQLType(int sqlType, String columnName, String sqlTypeName) throws Exception {
+    ColumnData.Type colType = ColumnData.Type.UNKNOWN;
+    switch (sqlType) {
+      case 2:
+      case 6:
+      case 8:
+        colType = ColumnData.Type.DOUBLE;
+        return colType;
+      case 4:
+      case 5:
+        colType = ColumnData.Type.INTEGER;
+        return colType;
+      case -5:
+        colType = ColumnData.Type.BIGINT;
+        return colType;
+      case 1:
+      case 12:
+        colType = ColumnData.Type.STRING;
+        return colType;
+      case 91:
+        colType = ColumnData.Type.DATE;
+        return colType;
+      case 92:
+        colType = ColumnData.Type.TIME;
+        return colType;
+      case 93:
+        colType = ColumnData.Type.TIMESTAMP;
+        return colType;
+      case 16:
+        colType = ColumnData.Type.BOOLEAN;
+        return colType;
+    } 
+    if ("geometry".equals(sqlTypeName)) {
+      colType = ColumnData.Type.GEOMETRY;
+    } else if ("bool".equals(sqlTypeName)) {
+      colType = ColumnData.Type.BOOLEAN;
+    } else {
+      throw new Exception("Unable to figure out column type for " + columnName + " - type:" + sqlType + "(" + sqlTypeName + ")");
+    } 
+    return colType;
+  }
+  
+  public static void addRequiredParmToPreparedStatement(PreparedStatement ps, String key, int index, List<String> values, ColumnData columnData) throws Exception {
+    if (null == values)
+      throw new Exception("Parameter " + key + " not provided"); 
+    if (values.size() < 1)
+      throw new Exception("Parameter " + key + " not provided"); 
+    if (values.size() > 1)
+      throw new Exception("Parameter " + key + " provided multiple times"); 
+    writeToPreparedStatement(ps, index, values.get(0), columnData.getColumnType());
+  }
+  
+  public static void addOptionalParmToPreparedStatement(PreparedStatement ps, String key, int index, List<String> values, ColumnData columnData) throws Exception {
+    String val = null;
+    if (null != values)
+      if (values.size() == 1) {
+        val = values.get(0);
+        if ("null".equalsIgnoreCase(val))
+          val = null; 
+      } else if (values.size() > 1) {
+        String w = "";
+        for (String v : values)
+          w = w + v + " "; 
+        // **Change from Log4j to SLF4J**
+        // logger.info("values for " + key + ":" + w);
+        logger.info("values for {}: {}", key, w);
+        throw new Exception("Parameter " + key + " provided multiple times");
+      }  
+    writeToPreparedStatement(ps, index, val, columnData.getColumnType());
+  }
+  
+  public static void writeToPreparedStatement(PreparedStatement pstmt, int index, TypedValue typedValue) throws Exception {
+    writeToPreparedStatement(pstmt, index, typedValue.getValue(), typedValue.getColumnDataType());
+  }
+  
+  public static void writeToPreparedStatement(PreparedStatement pstmt, int index, String value, ColumnData.Type columnDataType) throws Exception {
+    if (ColumnData.Type.STRING == columnDataType) {
+      if (null == value || 0 == value.length()) {
+        pstmt.setNull(index, 12);
+      } else {
+        pstmt.setString(index, value);
+      } 
+    } else if (ColumnData.Type.INTEGER == columnDataType) {
+      if (null == value || 0 == value.length()) {
+        pstmt.setNull(index, 4);
+      } else {
+        int intValue = Integer.parseInt(value);
+        pstmt.setInt(index, intValue);
+      } 
+    } else if (ColumnData.Type.BIGINT == columnDataType) {
+      if (null == value || 0 == value.length()) {
+        pstmt.setNull(index, -5);
+      } else {
+        long longValue = Long.parseLong(value);
+        pstmt.setLong(index, longValue);
+      } 
+    } else if (ColumnData.Type.DOUBLE == columnDataType) {
+      if (null == value || 0 == value.length()) {
+        pstmt.setNull(index, 8);
+      } else {
+        double doubleValue = Double.parseDouble(value);
+        pstmt.setDouble(index, doubleValue);
+      } 
+    } else if (ColumnData.Type.TIME == columnDataType) {
+      if (null == value || 0 == value.length()) {
+        pstmt.setNull(index, 92);
+      } else {
+        Date dateValue = timeFormatter.parse(value);
+        pstmt.setTime(index, new Time(dateValue.getTime()));
+      } 
+    } else if (ColumnData.Type.DATE == columnDataType) {
+      if (null == value || 0 == value.length()) {
+        pstmt.setNull(index, 91);
+      } else {
+        Date dateValue = dateFormatter.parse(value);
+        pstmt.setDate(index, new Date(dateValue.getTime()));
+      } 
+    } else if (ColumnData.Type.TIMESTAMP == columnDataType) {
+      if (null == value || 0 == value.length()) {
+        pstmt.setNull(index, 93);
+      } else {
+        Date dateValue = tsFormatter.parse(value);
+        pstmt.setTimestamp(index, new Timestamp(dateValue.getTime()));
+      } 
+    } else if (ColumnData.Type.GEOMETRY == columnDataType) {
+      if (null == value || 0 == value.length()) {
+        pstmt.setNull(index, 12);
+      } else {
+        pstmt.setString(index, value);
+      } 
+    } else if (ColumnData.Type.BOOLEAN == columnDataType) {
+      if (null == value || 0 == value.length()) {
+        pstmt.setNull(index, 16);
+      } else {
+        boolean f = Boolean.parseBoolean(value);
+        pstmt.setBoolean(index, f);
+      } 
+    } else {
+      throw new Exception("Uknown method to convert type " + columnDataType.toString());
+    } 
+  }
+  
+  public static void addColumnToJson(JSONObject obj, ResultSet rs, int index, String columnName, int columnSqlType, String columnSqlTypeName) throws Exception {
+    if (4 == columnSqlType) {
+      obj.put(columnName, rs.getInt(index));
+    } else if (-5 == columnSqlType) {
+      obj.put(columnName, rs.getLong(index));
+    } else if (12 == columnSqlType) {
+      obj.put(columnName, rs.getString(index));
+    } else if (92 == columnSqlType) {
+      Time time = rs.getTime(index);
+      if (null != time) {
+        String timeString = timeFormatter.format(time);
+        long timeMs = time.getTime();
+        JSONObject timeObj = new JSONObject();
+        timeObj.put("formatted", timeString);
+        timeObj.put("raw", timeMs);
+        obj.put(columnName, timeObj);
+      } 
+    } else if (91 == columnSqlType) {
+      Date date = rs.getDate(index);
+      if (null != date) {
+        String dateString = dateFormatter.format(date);
+        long timeMs = date.getTime();
+        JSONObject timeObj = new JSONObject();
+        timeObj.put("formatted", dateString);
+        timeObj.put("raw", timeMs);
+        obj.put(columnName, timeObj);
+      } 
+    } else if (93 == columnSqlType) {
+      Timestamp ts = rs.getTimestamp(index);
+      if (null != ts) {
+        String tsString = tsFormatter.format(ts);
+        long timeMs = ts.getTime();
+        JSONObject timeObj = new JSONObject();
+        timeObj.put("formatted", tsString);
+        timeObj.put("raw", timeMs);
+        obj.put(columnName, timeObj);
+      } 
+    } else if (16 == columnSqlType) {
+      obj.put(columnName, rs.getBoolean(index));
+    } else if (12 == columnSqlType) {
+      obj.put(columnName, rs.getString(index));
+    } else if (2 == columnSqlType) {
+      obj.put(columnName, rs.getBigDecimal(index));
+    } else if (8 == columnSqlType) {
+      obj.put(columnName, rs.getDouble(index));
+    } else if (6 == columnSqlType) {
+      obj.put(columnName, rs.getFloat(index));
+    } else if ("bool".equals(columnSqlTypeName)) {
+      obj.put(columnName, rs.getBoolean(index));
+    } else {
+      throw new Exception("Unknown selected column type - name:" + columnName + " type:" + columnSqlType + "(" + columnSqlTypeName + ")");
+    } 
+  }
+  
+  public static JSONArray executeStatementToJson(PreparedStatement pstmt) throws Exception {
+    boolean resultAvailable = pstmt.execute();
+    if (!resultAvailable)
+      throw new Exception("Query returned no results"); 
+    ResultSet rs = pstmt.getResultSet();
+    ResultSetMetaData rsmd = rs.getMetaData();
+    JSONArray array = new JSONArray();
+    try {
+      while (rs.next()) {
+        JSONObject obj = new JSONObject();
+        for (int loop = 0; loop < rsmd.getColumnCount(); loop++) {
+          int index = loop + 1;
+          addColumnToJson(obj, rs, index, rsmd.getColumnName(index), rsmd.getColumnType(index), rsmd.getColumnTypeName(index));
+        } 
+        array.put(obj);
+      } 
+    } catch (Exception je) {
+      throw new ServletException("Error while parsing results", je);
+    } 
+    return array;
+  }
+  
+  public static int obtainNextIncrementInteger(Connection connection, ColumnData autoIncrementIntegerColumn) throws Exception {
+    try {
+      String sqlQuery = "SELECT nextval(?);";
+      PreparedStatement pstmt = null;
+      pstmt = connection.prepareStatement(sqlQuery);
+      pstmt.setString(1, autoIncrementIntegerColumn.getAutoIncrementSequence());
+      if (pstmt.execute()) {
+        ResultSet rs = pstmt.getResultSet();
+        if (rs.next()) {
+          int nextValue = rs.getInt(1);
+          return nextValue;
+        } 
+        throw new Exception("Empty result returned by SQL: " + sqlQuery);
+      } 
+      throw new Exception("No result returned by SQL: " + sqlQuery);
+    } catch (Exception e) {
+      throw new Exception("Error while attempting to get a auto increment integer value for: " + autoIncrementIntegerColumn.getColumnName() + " (" + autoIncrementIntegerColumn.getAutoIncrementSequence() + ")", e);
+    } 
+  }
+}
+Summary of Changes:
+Imports: Changed import org.apache.log4j.Logger; to import org.slf4j.Logger; and import org.slf4j.LoggerFactory;.
+Logger Initialization: Changed Logger.getLogger("ca.carleton.gcrc.dbSec.impl.ColumnDataUtils"); to LoggerFactory.getLogger(ColumnDataUtils.class);.
+Logging Statements: Updated logging statements to use SLF4J's placeholder-based logging.

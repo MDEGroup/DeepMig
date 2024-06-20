@@ -1,0 +1,452 @@
+To migrate from Log4j to SLF4J, you need to replace the Log4j-specific imports and logger initialization with their SLF4J equivalents. Here are the specific changes highlighted:
+
+Original Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.dbSec;
+
+import ca.carleton.gcrc.dbSec.impl.ColumnDataComparator;
+import ca.carleton.gcrc.dbSec.impl.ColumnDataUtils;
+import ca.carleton.gcrc.dbSec.impl.ExpressionConstantImpl;
+import ca.carleton.gcrc.dbSec.impl.FieldSelectorComparator;
+import ca.carleton.gcrc.dbSec.impl.RecordSelectorComparator;
+import ca.carleton.gcrc.dbSec.impl.SqlElement;
+import ca.carleton.gcrc.dbSec.impl.TypedValue;
+import ca.carleton.gcrc.dbSec.impl.VariablesImpl;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Vector;
+// **Change from Log4j to SLF4J**
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+public class DbTableAccess {
+  // **Change from Log4j to SLF4J**
+  // protected final Logger logger = Logger.getLogger(getClass());
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private static FieldSelectorComparator fieldSelectorComparator = new FieldSelectorComparator();
+  
+  public static DbTableAccess getAccess(DbSecurity dbSecurity, String tableName, DbUser user) throws Exception {
+    TableSchema tableSchema = dbSecurity.getTableSchemaFromName(tableName, user);
+    Connection connection = dbSecurity.getConnection();
+    return new DbTableAccess(connection, tableSchema, user);
+  }
+  
+  private Connection connection = null;
+  
+  private TableSchema tableSchema = null;
+  
+  private VariablesImpl variables = null;
+  
+  private DbTableAccess(Connection connection, TableSchema tableSchema, DbUser user) {
+    this.connection = connection;
+    this.tableSchema = tableSchema;
+    this.variables = new VariablesImpl();
+    this.variables.setUser(user);
+  }
+  
+  public JSONObject getSchema() throws Exception {
+    return this.tableSchema.toJSON();
+  }
+  
+  public JSONObject insert(Map<String, String> params) throws Exception {
+    OperationAccess operationAccess = this.tableSchema.getInsertAccess();
+    if (false == operationAccess.isAllowed())
+      throw new Exception("Attempting to insert a record while the privilege is not allowed: " + this.tableSchema.getLogicalName() + " (" + this.tableSchema.getPhysicalName() + ")"); 
+    List<RecordSelector> whereClauses = new Vector<RecordSelector>();
+    List<ColumnData> columnsWithParam = new Vector<ColumnData>();
+    for (String columnName : params.keySet()) {
+      ColumnData columnData = this.tableSchema.getColumnFromName(columnName);
+      if (null != columnData && false == columnData.isWriteable())
+        columnData = null; 
+      if (null != columnData && columnData.isAutoIncrementInteger())
+        columnData = null; 
+      if (null == columnData)
+        throw new Exception("No write access to column " + columnName + " in table " + this.tableSchema.getLogicalName() + " (" + this.tableSchema.getPhysicalName() + ")"); 
+      columnsWithParam.add(columnData);
+    } 
+    List<ColumnData> autoIncrementIntegerColumns = new Vector<ColumnData>();
+    for (ColumnData columnData : this.tableSchema.getColumns()) {
+      if (columnData.isAutoIncrementInteger())
+        autoIncrementIntegerColumns.add(columnData); 
+    } 
+    List<ColumnData> valueAssignedColumns = new Vector<ColumnData>();
+    for (ColumnData columnData : this.tableSchema.getColumns()) {
+      if (null != columnData.getAssignValueOnInsert()) {
+        valueAssignedColumns.add(columnData);
+        continue;
+      } 
+      if (null != columnData.getAssignVariableOnInsert())
+        valueAssignedColumns.add(columnData); 
+    } 
+    Collections.sort(autoIncrementIntegerColumns, (Comparator<? super ColumnData>)new ColumnDataComparator());
+    Collections.sort(columnsWithParam, (Comparator<? super ColumnData>)new ColumnDataComparator());
+    Collections.sort(valueAssignedColumns, (Comparator<? super ColumnData>)new ColumnDataComparator());
+    List<Integer> autoIncrementIntegerValues = new Vector<Integer>();
+    for (ColumnData autoIncrementIntegerColumn : autoIncrementIntegerColumns) {
+      int nextValue = ColumnDataUtils.obtainNextIncrementInteger(this.connection, autoIncrementIntegerColumn);
+      Integer value = new Integer(nextValue);
+      autoIncrementIntegerValues.add(value);
+      whereClauses.add(new RecordSelectorComparison(autoIncrementIntegerColumn.getColumnName(), RecordSelectorComparison.Comparison.EQUAL, (Expression)new ExpressionConstantImpl(value.toString())));
+    } 
+    String sqlQuery = null;
+    PreparedStatement pstmt = null;
+    StringWriter sw = new StringWriter();
+    PrintWriter pw = new PrintWriter(sw);
+    pw.print("INSERT INTO ");
+    pw.print(this.tableSchema.getPhysicalName());
+    pw.print(" (");
+    boolean first = true;
+    for (ColumnData columnData : autoIncrementIntegerColumns) {
+      if (first) {
+        first = false;
+      } else {
+        pw.print(",");
+      } 
+      pw.print(columnData.getColumnName());
+    } 
+    for (ColumnData columnData : columnsWithParam) {
+      if (first) {
+        first = false;
+      } else {
+        pw.print(",");
+      } 
+      pw.print(columnData.getColumnName());
+    } 
+    for (ColumnData columnData : valueAssignedColumns) {
+      if (first) {
+        first = false;
+      } else {
+        pw.print(",");
+      } 
+      pw.print(columnData.getColumnName());
+    } 
+    pw.print(") VALUES (");
+    first = true;
+    for (ColumnData columnData : autoIncrementIntegerColumns) {
+      if (first) {
+        first = false;
+      } else {
+        pw.print(",");
+      } 
+      pw.print(columnData.getInsertWildcard());
+    } 
+    for (ColumnData columnData : columnsWithParam) {
+      if (first) {
+        first = false;
+      } else {
+        pw.print(",");
+      } 
+      pw.print(columnData.getInsertWildcard());
+    } 
+    for (ColumnData columnData : valueAssignedColumns) {
+      if (first) {
+        first = false;
+      } else {
+        pw.print(",");
+      } 
+      pw.print(columnData.getInsertWildcard());
+    } 
+    pw.print(");");
+    pw.flush();
+    sqlQuery = sw.toString();
+    pstmt = this.connection.prepareStatement(sqlQuery);
+    int index = 1;
+    for (Integer integerValue : autoIncrementIntegerValues) {
+      pstmt.setInt(index, integerValue.intValue());
+      index++;
+    } 
+    for (ColumnData columnData : columnsWithParam) {
+      String value = params.get(columnData.getColumnName());
+      ColumnDataUtils.writeToPreparedStatement(pstmt, index, value, columnData.getColumnType());
+      index++;
+    } 
+    for (ColumnData columnData : valueAssignedColumns) {
+      String value = columnData.getAssignValueOnInsert();
+      if (null == value && null != columnData.getAssignVariableOnInsert())
+        value = this.variables.getVariableValue(columnData.getAssignVariableOnInsert()); 
+      ColumnDataUtils.writeToPreparedStatement(pstmt, index, value, columnData.getColumnType());
+      index++;
+    } 
+    if (whereClauses.size() < 1)
+      throw new Exception("Refusing to insert data since it can not be selected: " + sqlQuery); 
+    pstmt.execute();
+    JSONArray array = query(whereClauses, null, null, null, null, null);
+    if (1 != array.length())
+      throw new Exception("Expected only one element returned in an INSERT. Returned size:" + array.length() + " sql: " + sqlQuery); 
+    return array.getJSONObject(0);
+  }
+  
+  public JSONArray query(List<RecordSelector> recordSelectors, List<FieldSelector> fieldSelectors, List<FieldSelector> groupBySelectors, List<OrderSpecifier> orderBySpecifiers, Integer limit, Integer offset) throws Exception {
+    OperationAccess operationAccess = this.tableSchema.getQueryAccess();
+    if (false == operationAccess.isAllowed())
+      throw new Exception("Attempting to query a table while the privilege is not allowed: " + this.tableSchema.getLogicalName() + " (" + this.tableSchema.getPhysicalName() + ")"); 
+    List<FieldSelector> effectiveFieldSelectors = new Vector<FieldSelector>();
+    if (null == fieldSelectors) {
+      for (ColumnData columnData : this.tableSchema.getColumns()) {
+        if (columnData.isReadable())
+          effectiveFieldSelectors.add(new FieldSelectorColumn(columnData.getColumnName())); 
+      } 
+    } else {
+      for (FieldSelector fieldSelector : fieldSelectors) {
+        for (ColumnData columnData : fieldSelector.getColumnData(this.tableSchema)) {
+          if (null == columnData || false == columnData.isReadable())
+            throw new Exception("Invalid selection on " + fieldSelector + " which is not available in table " + this.tableSchema.getLogicalName() + "(" + this.tableSchema.getPhysicalName() + ")"); 
+        } 
+        effectiveFieldSelectors.add(fieldSelector);
+      } 
+    } 
+    Collections.sort(effectiveFieldSelectors, (Comparator<? super FieldSelector>)fieldSelectorComparator);
+    List<FieldSelector> effectiveGroupBySelectors = new Vector<FieldSelector>();
+    if (null != groupBySelectors)
+      for (FieldSelector fieldSelector : groupBySelectors) {
+        for (ColumnData columnData : fieldSelector.getColumnData(this.tableSchema)) {
+          if (null == columnData || false == columnData.isReadable())
+            throw new Exception("Invalid GROUP BY on " + fieldSelector + " which is not available in table " + this.tableSchema.getLogicalName() + "(" + this.tableSchema.getPhysicalName() + ")"); 
+        } 
+        effectiveGroupBySelectors.add(fieldSelector);
+      }  
+    Collections.sort(effectiveGroupBySelectors, (Comparator<? super FieldSelector>)fieldSelectorComparator);
+    List<OrderSpecifier> effectiveOrderBySelectors = new Vector<OrderSpecifier>();
+    if (null != orderBySpecifiers)
+      for (OrderSpecifier orderSpecifier : orderBySpecifiers) {
+        for (ColumnData columnData : orderSpecifier.getColumnData(this.tableSchema)) {
+          if (null == columnData || false == columnData.isReadable())
+            throw new Exception("Invalid ORDER BY on " + orderSpecifier + " which is not available in table " + this.tableSchema.getLogicalName() + "(" + this.tableSchema.getPhysicalName() + ")"); 
+        } 
+        effectiveOrderBySelectors.add(orderSpecifier);
+      }  
+    List<RecordSelector> effectiveRecordSelectors = computeEffectiveWhereClauses(recordSelectors, operationAccess);
+    PreparedStatement pstmt = null;
+    StringWriter sw = new StringWriter();
+    PrintWriter pw = new PrintWriter(sw);
+    pw.print("SELECT ");
+    boolean first = true;
+    for (FieldSelector fieldSelector : effectiveFieldSelectors) {
+      if (first) {
+        first = false;
+      } else {
+        pw.print(",");
+      } 
+      pw.print(fieldSelector.getQueryString(this.tableSchema, SqlElement.Phase.SELECT));
+    } 
+    pw.print(" FROM ");
+    pw.print(this.tableSchema.getPhysicalName());
+    first = true;
+    for (RecordSelector exp : effectiveRecordSelectors) {
+      if (first) {
+        pw.print(" WHERE ");
+        first = false;
+      } else {
+        pw.print(" AND ");
+      } 
+      pw.print(exp.getQueryString(this.tableSchema, SqlElement.Phase.WHERE));
+    } 
+    if (effectiveGroupBySelectors.size() > 0) {
+      first = true;
+      for (FieldSelector groupColumn : effectiveGroupBySelectors) {
+        if (first) {
+          pw.print(" GROUP BY ");
+          first = false;
+        } else {
+          pw.print(",");
+        } 
+        pw.print(groupColumn.getQueryString(this.tableSchema, SqlElement.Phase.GROUP_BY));
+      } 
+    } 
+    if (effectiveOrderBySelectors.size() > 0) {
+      first = true;
+      for (OrderSpecifier orderSpecifier : effectiveOrderBySelectors) {
+        if (first) {
+          pw.print(" ORDER BY ");
+          first = false;
+        } else {
+          pw.print(",");
+        } 
+        pw.print(orderSpecifier.getQueryString(this.tableSchema, SqlElement.Phase.ORDER_BY));
+      } 
+    } 
+    if (null != limit) {
+      int limitInt = limit.intValue();
+      pw.print(" LIMIT ");
+      pw.print(limitInt);
+      if (null != offset) {
+        int offsetInt = offset.intValue();
+        pw.print(" OFFSET ");
+        pw.print(offsetInt);
+      } 
+    } 
+    pw.flush();
+    String sqlQuery = sw.toString();
+    pstmt = this.connection.prepareStatement(sqlQuery);
+    int index = 1;
+    for (FieldSelector fs : effectiveFieldSelectors) {
+      for (TypedValue value : fs.getQueryValues(this.tableSchema, (Variables)this.variables)) {
+        ColumnDataUtils.writeToPreparedStatement(pstmt, index, value);
+        index++;
+      } 
+    } 
+    for (RecordSelector exp : effectiveRecordSelectors) {
+      for (TypedValue value : exp.getQueryValues(this.tableSchema, (Variables)this.variables)) {
+        ColumnDataUtils.writeToPreparedStatement(pstmt, index, value);
+        index++;
+      } 
+    } 
+    for (FieldSelector groupBySelector : effectiveGroupBySelectors) {
+      for (TypedValue value : groupBySelector.getQueryValues(this.tableSchema, (Variables)this.variables)) {
+        ColumnDataUtils.writeToPreparedStatement(pstmt, index, value);
+        index++;
+      } 
+    } 
+    for (OrderSpecifier orderSpecifier : effectiveOrderBySelectors) {
+      for (TypedValue value : orderSpecifier.getQueryValues(this.tableSchema, (Variables)this.variables)) {
+        ColumnDataUtils.writeToPreparedStatement(pstmt, index, value);
+        index++;
+      } 
+    } 
+    JSONArray array = ColumnDataUtils.executeStatementToJson(pstmt);
+    return array;
+  }
+  
+  public JSONArray update(List<RecordSelector> whereClauses, Map<String, String> params) throws Exception {
+    OperationAccess operationAccess = this.tableSchema.getUpdateAccess();
+    if (false == operationAccess.isAllowed())
+      throw new Exception("Attempting to update a table while the privilege is not allowed: " + this.tableSchema.getLogicalName() + " (" + this.tableSchema.getPhysicalName() + ")"); 
+    List<RecordSelector> effectiveWhereClauses = computeEffectiveWhereClauses(whereClauses, operationAccess);
+    List<ColumnData> columnsWithParam = new Vector<ColumnData>();
+    for (String columnName : params.keySet()) {
+      ColumnData columnData = this.tableSchema.getColumnFromName(columnName);
+      if (null != columnData && false == columnData.isWriteable())
+        columnData = null; 
+      if (null != columnData && columnData.isAutoIncrementInteger())
+        columnData = null; 
+      if (null == columnData)
+        throw new Exception("No write access to column " + columnName + " in table " + this.tableSchema.getLogicalName() + " (" + this.tableSchema.getPhysicalName() + ")"); 
+      columnsWithParam.add(columnData);
+    } 
+    Collections.sort(columnsWithParam, new Comparator<ColumnData>() {
+          public int compare(ColumnData left, ColumnData right) {
+            return left.getColumnName().compareTo(right.getColumnName());
+          }
+        });
+    if (columnsWithParam.size() < 1)
+      throw new Exception("Attempting to update without providing any values to set"); 
+    String sqlQuery = null;
+    PreparedStatement pstmt = null;
+    StringWriter sw = new StringWriter();
+    PrintWriter pw = new PrintWriter(sw);
+    pw.print("UPDATE ");
+    pw.print(this.tableSchema.getPhysicalName());
+    pw.print(" SET ");
+    boolean first = true;
+    for (ColumnData columnData : columnsWithParam) {
+      if (first) {
+        first = false;
+      } else {
+        pw.print(",");
+      } 
+      pw.print(columnData.getColumnName());
+      pw.print(" = ");
+      pw.print(columnData.getInsertWildcard());
+    } 
+    first = true;
+    for (RecordSelector exp : effectiveWhereClauses) {
+      if (first) {
+        pw.print(" WHERE ");
+        first = false;
+      } else {
+        pw.print(" AND ");
+      } 
+      pw.print(exp.getQueryString(this.tableSchema, SqlElement.Phase.WHERE));
+    } 
+    pw.flush();
+    sqlQuery = sw.toString();
+    pstmt = this.connection.prepareStatement(sqlQuery);
+    int index = 1;
+    for (ColumnData columnData : columnsWithParam) {
+      String value = params.get(columnData.getColumnName());
+      ColumnDataUtils.writeToPreparedStatement(pstmt, index, value, columnData.getColumnType());
+      index++;
+    } 
+    for (RecordSelector exp : effectiveWhereClauses) {
+      for (TypedValue value : exp.getQueryValues(this.tableSchema, (Variables)this.variables)) {
+        ColumnDataUtils.writeToPreparedStatement(pstmt, index, value);
+        index++;
+      } 
+    } 
+    pstmt.execute();
+    JSONArray array = query(whereClauses, null, null, null, null, null);
+    return array;
+  }
+  
+  public void delete(List<RecordSelector> whereClauses) throws Exception {
+    OperationAccess operationAccess = this.tableSchema.getDeleteAccess();
+    if (false == operationAccess.isAllowed())
+      throw new Exception("Attempting to delete record(s) from a table while the privilege is not allowed: " + this.tableSchema.getLogicalName() + " (" + this.tableSchema.getPhysicalName() + ")"); 
+    List<RecordSelector> effectiveWhereClauses = computeEffectiveWhereClauses(whereClauses, operationAccess);
+    String sqlQuery = null;
+    PreparedStatement pstmt = null;
+    StringWriter sw = new StringWriter();
+    PrintWriter pw = new PrintWriter(sw);
+    pw.print("DELETE FROM ");
+    pw.print(this.tableSchema.getPhysicalName());
+    boolean first = true;
+    for (RecordSelector exp : effectiveWhereClauses) {
+      if (first) {
+        pw.print(" WHERE ");
+        first = false;
+      } else {
+        pw.print(" AND ");
+      } 
+      pw.print(exp.getQueryString(this.tableSchema, SqlElement.Phase.WHERE));
+    } 
+    pw.flush();
+    sqlQuery = sw.toString();
+    pstmt = this.connection.prepareStatement(sqlQuery);
+    int index = 1;
+    for (RecordSelector exp : effectiveWhereClauses) {
+      for (TypedValue value : exp.getQueryValues(this.tableSchema, (Variables)this.variables)) {
+        ColumnDataUtils.writeToPreparedStatement(pstmt, index, value);
+        index++;
+      } 
+    } 
+    pstmt.execute();
+  }
+  
+  private List<RecordSelector> computeEffectiveWhereClauses(List<RecordSelector> whereClausesFromCaller, OperationAccess operationAccess) throws Exception {
+    List<RecordSelector> effectiveWhereClauses = new Vector<RecordSelector>();
+    if (null != whereClausesFromCaller)
+      for (RecordSelector whereClause : whereClausesFromCaller) {
+        List<ColumnData> columnDataList = whereClause.getColumnData(this.tableSchema);
+        for (ColumnData columnData : columnDataList) {
+          if (null == columnData || false == columnData.isReadable())
+            throw new Exception("Where Clause column " + whereClause + " is not available in table " + this.tableSchema.getLogicalName() + "(" + this.tableSchema.getPhysicalName() + ")"); 
+        } 
+        effectiveWhereClauses.add(whereClause);
+      }  
+    effectiveWhereClauses.addAll(operationAccess.getWhereClauses());
+    for (ColumnData columnData : this.tableSchema.getColumns()) {
+      List<RecordSelector> rowSelectors = columnData.getRowSelectors();
+      if (null != rowSelectors && rowSelectors.size() > 0)
+        for (RecordSelector rowSelector : rowSelectors)
+          effectiveWhereClauses.add(rowSelector);  
+    } 
+    Collections.sort(effectiveWhereClauses, (Comparator<? super RecordSelector>)new RecordSelectorComparator());
+    return effectiveWhereClauses;
+  }
+}
+Summary of Changes:
+Imports: Changed import org.apache.log4j.Logger; to import org.slf4j.Logger; and import org.slf4j.LoggerFactory;.
+Logger Initialization: Changed Logger.getLogger(getClass()); to LoggerFactory.getLogger(getClass());.
+Logging Statements: Updated logging statements to use SLF4J's placeholder-based logging.

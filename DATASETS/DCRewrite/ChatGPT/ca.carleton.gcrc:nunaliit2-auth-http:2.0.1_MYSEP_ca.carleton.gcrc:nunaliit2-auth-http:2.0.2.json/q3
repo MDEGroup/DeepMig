@@ -1,0 +1,234 @@
+To migrate from Log4j to SLF4J, you need to replace the Log4j-specific imports and logger initialization with their SLF4J equivalents. Here are the specific changes highlighted:
+
+Original Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.auth;
+
+import ca.carleton.gcrc.auth.common.AuthHttpServletRequest;
+import ca.carleton.gcrc.auth.common.User;
+import ca.carleton.gcrc.auth.common.UserRepository;
+import ca.carleton.gcrc.auth.common.UserRepositorySingleton;
+import java.io.IOException;
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import org.apache.log4j.Logger;
+
+public class AttachAuthFilter implements Filter {
+  protected final Logger logger = Logger.getLogger(getClass());
+  
+  private UserRepository userRepository;
+  
+  String[] attachAuthList = null;
+  
+  String dbUserName = null;
+  
+  String dbUserPassword = null;
+  
+  User dbUser = null;
+  
+  public void init(FilterConfig config) throws ServletException {
+    try {
+      this.userRepository = UserRepositorySingleton.getSingleton();
+    } catch (Exception e) {
+      this.logger.error("Error while connecting to database", e);
+      throw new ServletException("Error while connecting to database", e);
+    } 
+    String value = config.getInitParameter("attachAuth");
+    if (null != value) {
+      this.attachAuthList = value.split(",");
+    } else {
+      throw new ServletException("attachAuth list not specified.");
+    } 
+    value = config.getInitParameter("dbUser");
+    if (null != value) {
+      this.dbUserName = value;
+    } else {
+      throw new ServletException("dbUser not specified.");
+    } 
+    value = config.getInitParameter("dbPassword");
+    if (null != value) {
+      this.dbUserPassword = value;
+    } else {
+      throw new ServletException("dbPassword not specified.");
+    } 
+    try {
+      this.dbUser = this.userRepository.authenticate(this.dbUserName, this.dbUserPassword);
+    } catch (Exception e) {
+      throw new ServletException("Configured attachAuth name and password do not authenticate.", e);
+    } 
+  }
+  
+  public void destroy() {
+    if (null != this.userRepository)
+      this.userRepository.destroy(); 
+  }
+  
+  public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain chain) throws IOException, ServletException {
+    if (servletRequest instanceof HttpServletRequest && servletResponse instanceof HttpServletResponse) {
+      HttpServletRequest request = (HttpServletRequest)servletRequest;
+      HttpServletResponse response = (HttpServletResponse)servletResponse;
+      try {
+        request = attachIfRequired(request);
+        chain.doFilter((ServletRequest)request, (ServletResponse)response);
+      } catch (Exception e) {
+        throw new ServletException("Error while filtering request", e);
+      } 
+    } else {
+      chain.doFilter(servletRequest, servletResponse);
+    } 
+  }
+  
+  private boolean checkListContains(String[] list, String path) {
+    for (String lPath : list) {
+      if (lPath.equalsIgnoreCase(path))
+        return true; 
+    } 
+    return false;
+  }
+  
+  private HttpServletRequest attachIfRequired(HttpServletRequest request) {
+    String[] paths = request.getRequestURI().split("/");
+    String path = paths[paths.length - 1];
+    boolean inAttachAuthList = checkListContains(this.attachAuthList, path);
+    if (inAttachAuthList) {
+      String auth = request.getHeader("Authorization");
+      if (null == auth) {
+        AuthHttpServletRequest chainedRequest = new AuthHttpServletRequest(request, this.dbUser);
+        this.logger.info(getClass().getName() + " auth attached - path:" + path + " user:" + this.dbUser);
+        return (HttpServletRequest)chainedRequest;
+      } 
+    } 
+    return request;
+  }
+}
+Updated Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.auth;
+
+import ca.carleton.gcrc.auth.common.AuthHttpServletRequest;
+import ca.carleton.gcrc.auth.common.User;
+import ca.carleton.gcrc.auth.common.UserRepository;
+import ca.carleton.gcrc.auth.common.UserRepositorySingleton;
+import java.io.IOException;
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+// **Change from Log4j to SLF4J**
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class AttachAuthFilter implements Filter {
+  // **Change from Log4j to SLF4J**
+  // protected final Logger logger = Logger.getLogger(getClass());
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private UserRepository userRepository;
+  
+  String[] attachAuthList = null;
+  
+  String dbUserName = null;
+  
+  String dbUserPassword = null;
+  
+  User dbUser = null;
+  
+  public void init(FilterConfig config) throws ServletException {
+    try {
+      this.userRepository = UserRepositorySingleton.getSingleton();
+    } catch (Exception e) {
+      // **Change from Log4j to SLF4J**
+      // this.logger.error("Error while connecting to database", e);
+      this.logger.error("Error while connecting to database", e);
+      throw new ServletException("Error while connecting to database", e);
+    } 
+    String value = config.getInitParameter("attachAuth");
+    if (null != value) {
+      this.attachAuthList = value.split(",");
+    } else {
+      throw new ServletException("attachAuth list not specified.");
+    } 
+    value = config.getInitParameter("dbUser");
+    if (null != value) {
+      this.dbUserName = value;
+    } else {
+      throw new ServletException("dbUser not specified.");
+    } 
+    value = config.getInitParameter("dbPassword");
+    if (null != value) {
+      this.dbUserPassword = value;
+    } else {
+      throw new ServletException("dbPassword not specified.");
+    } 
+    try {
+      this.dbUser = this.userRepository.authenticate(this.dbUserName, this.dbUserPassword);
+    } catch (Exception e) {
+      throw new ServletException("Configured attachAuth name and password do not authenticate.", e);
+    } 
+  }
+  
+  public void destroy() {
+    if (null != this.userRepository)
+      this.userRepository.destroy(); 
+  }
+  
+  public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain chain) throws IOException, ServletException {
+    if (servletRequest instanceof HttpServletRequest && servletResponse instanceof HttpServletResponse) {
+      HttpServletRequest request = (HttpServletRequest)servletRequest;
+      HttpServletResponse response = (HttpServletResponse)servletResponse;
+      try {
+        request = attachIfRequired(request);
+        chain.doFilter((ServletRequest)request, (ServletResponse)response);
+      } catch (Exception e) {
+        throw new ServletException("Error while filtering request", e);
+      } 
+    } else {
+      chain.doFilter(servletRequest, servletResponse);
+    } 
+  }
+  
+  private boolean checkListContains(String[] list, String path) {
+    for (String lPath : list) {
+      if (lPath.equalsIgnoreCase(path))
+        return true; 
+    } 
+    return false;
+  }
+  
+  private HttpServletRequest attachIfRequired(HttpServletRequest request) {
+    String[] paths = request.getRequestURI().split("/");
+    String path = paths[paths.length - 1];
+    boolean inAttachAuthList = checkListContains(this.attachAuthList, path);
+    if (inAttachAuthList) {
+      String auth = request.getHeader("Authorization");
+      if (null == auth) {
+        AuthHttpServletRequest chainedRequest = new AuthHttpServletRequest(request, this.dbUser);
+        // **Change from Log4j to SLF4J**
+        // this.logger.info(getClass().getName() + " auth attached - path:" + path + " user:" + this.dbUser);
+        this.logger.info("{} auth attached - path:{} user:{}", getClass().getName(), path, this.dbUser);
+        return (HttpServletRequest)chainedRequest;
+      } 
+    } 
+    return request;
+  }
+}
+Summary of Changes:
+Imports: Changed import org.apache.log4j.Logger; to import org.slf4j.Logger; and import org.slf4j.LoggerFactory;.
+Logger Initialization: Changed Logger.getLogger(getClass()); to LoggerFactory.getLogger(getClass());.
+Logging Statements: Updated logging statements to use SLF4J's placeholder-based logging.
+These changes will migrate your class from Log4j to SLF4J. Make sure to update the dependencies in your pom.xml as described earlier and test your application thoroughly to ensure that logging works as expected.

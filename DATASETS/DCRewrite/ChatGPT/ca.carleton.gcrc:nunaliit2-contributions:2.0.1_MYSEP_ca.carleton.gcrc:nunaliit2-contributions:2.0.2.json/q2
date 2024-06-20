@@ -1,0 +1,39 @@
+
+To migrate from Log4j to SLF4J, you need to update the import statements and the logger initialization. Below are the changes highlighted in the code:
+
+java
+Copia codice
+package ca.carleton.gcrc.contributionsImpl;
+
+import ca.carleton.gcrc.contributions.ContributionsFieldSubset;
+import ca.carleton.gcrc.dbSec.impl.ColumnDataUtils;
+import java.sql.PreparedStatement;
+import java.util.List;
+import java.util.Map;
+// Change import statement from Log4j to SLF4J
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ContributionClientSideFieldsImpl extends ContributionsFieldSubsetImpl implements ContributionsFieldSubset {
+  // Change logger initialization to use SLF4J
+  // protected final Logger logger = Logger.getLogger(getClass());
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
+
+  public void setAutoIncrementSequence(String fieldName, String autoIncrementSequence) {
+    this.logger.error("Client side contributions field (" + fieldName + ") marked for autoIncrement - ignored.");
+  }
+  
+  public void addParameterToPreparedStatement(PreparedStatement ps, String key, int index, Map<String, List<String>> fieldPairs) throws Exception {
+    ColumnDataUtils.addOptionalParmToPreparedStatement(ps, key, index, fieldPairs.get(key), this.fieldMap.get(key));
+  }
+}
+Summary of Changes:
+
+Import Statements:
+
+Replace import org.apache.log4j.Logger; with import org.slf4j.Logger; and import org.slf4j.LoggerFactory;.
+Logger Initialization:
+
+Replace protected final Logger logger = Logger.getLogger(getClass()); with protected final Logger logger = LoggerFactory.getLogger(getClass());.
+These changes will migrate the logging from Log4j to SLF4J.

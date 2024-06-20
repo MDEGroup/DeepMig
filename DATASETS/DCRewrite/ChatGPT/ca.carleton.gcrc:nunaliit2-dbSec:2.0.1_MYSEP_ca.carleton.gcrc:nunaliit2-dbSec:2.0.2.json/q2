@@ -1,0 +1,177 @@
+To migrate from Log4j to SLF4J, you need to replace the Log4j-specific imports and logger initialization with their SLF4J equivalents. Here are the specific changes highlighted:
+
+Original Code:
+
+java
+Copia codice
+package ca.carleton.gcrc.dbSec;
+
+import ca.carleton.gcrc.dbSec.impl.ExpressionConstantImpl;
+import ca.carleton.gcrc.dbSec.impl.ExpressionVariableImpl;
+import ca.carleton.gcrc.dbSec.impl.SqlElement;
+import ca.carleton.gcrc.dbSec.impl.TypedValue;
+import ca.carleton.gcrc.json.JSONSupport;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Vector;
+// **Change from Log4j to SLF4J**
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+public class RecordSelectorComparison implements RecordSelector {
+  public enum Comparison {
+    EQUAL(true),
+    NOT_EQUAL(true),
+    GREATER_THAN_OR_EQUAL(true),
+    LESS_THAN_OR_EQUAL(true),
+    GREATER_THAN(true),
+    LESS_THAN(true),
+    IS_NULL(false),
+    IS_NOT_NULL(false);
+    
+    private boolean fRequiresValue;
+    
+    Comparison(boolean fRequiresValue) {
+      this.fRequiresValue = fRequiresValue;
+    }
+    
+    public boolean requiresValue() {
+      return this.fRequiresValue;
+    }
+  }
+  
+  // **Change from Log4j to SLF4J**
+  // protected final Logger logger = Logger.getLogger(getClass());
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private String columnName;
+  
+  private Comparison comparison;
+  
+  private Expression expression;
+  
+  public static List<RecordSelector> columnComparisonsFromJson(JSONArray array, ColumnData columnData) throws Exception {
+    List<RecordSelector> columnComparisons = new Vector<RecordSelector>();
+    for (int loop = 0; loop < array.length(); loop++) {
+      JSONObject jsonComparison = array.getJSONObject(loop);
+      RecordSelector whereClause = columnComparisonFromJson(jsonComparison, columnData);
+      columnComparisons.add(whereClause);
+    } 
+    return columnComparisons;
+  }
+  
+  public static RecordSelector columnComparisonFromJson(JSONObject jsonComparison, ColumnData columnData) throws Exception {
+    ExpressionVariableImpl expressionVariableImpl;
+    String columnName = null;
+    if (null != columnData) {
+      columnName = columnData.getColumnName();
+    } else if (JSONSupport.containsKey(jsonComparison, "column")) {
+      columnName = jsonComparison.getString("column");
+    } else {
+      throw new Exception("Column name required");
+    } 
+    Expression expression = null;
+    if (JSONSupport.containsKey(jsonComparison, "value")) {
+      String valueString = jsonComparison.get("value").toString();
+      ExpressionConstantImpl expressionConstantImpl = new ExpressionConstantImpl(valueString);
+    } 
+    if (JSONSupport.containsKey(jsonComparison, "variable")) {
+      String valueString = jsonComparison.get("variable").toString();
+      expressionVariableImpl = new ExpressionVariableImpl(valueString);
+    } 
+    String comparisonName = jsonComparison.getString("comparison");
+    Comparison selectedComparison = null;
+    for (Comparison comparison1 : Comparison.values()) {
+      if (comparison1.name().equals(comparisonName)) {
+        selectedComparison = comparison1;
+        break;
+      } 
+    } 
+    if (null == selectedComparison)
+      throw new Exception("Unknown comparison: " + comparisonName); 
+    if (selectedComparison.requiresValue() && null == expressionVariableImpl)
+      throw new Exception("Expression required (value or variable) for comparison: " + selectedComparison.name()); 
+    RecordSelectorComparison comparison = new RecordSelectorComparison(columnName, selectedComparison, (Expression)expressionVariableImpl);
+    return comparison;
+  }
+  
+  public RecordSelectorComparison(String columnName, Comparison comparison, Expression expression) {
+    this.columnName = columnName;
+    this.comparison = comparison;
+    this.expression = expression;
+  }
+  
+  public RecordSelectorComparison(String columnName, Comparison comparison, String constantExpression) {
+    this.columnName = columnName;
+    this.comparison = comparison;
+    this.expression = (Expression)new ExpressionConstantImpl(constantExpression);
+  }
+  
+  public String getColumnName() {
+    return this.columnName;
+  }
+  
+  public Comparison getComparison() {
+    return this.comparison;
+  }
+  
+  public Expression getExpression() {
+    return this.expression;
+  }
+  
+  public String getQueryString(TableSchema tableSchema, SqlElement.Phase phase) throws Exception {
+    return "(" + this.columnName + " " + getSqlExpression() + ")";
+  }
+  
+  private String getSqlExpression() throws Exception {
+    if (Comparison.EQUAL == this.comparison)
+      return " = ?"; 
+    if (Comparison.NOT_EQUAL == this.comparison)
+      return " <> ?"; 
+    if (Comparison.GREATER_THAN == this.comparison)
+      return " > ?"; 
+    if (Comparison.GREATER_THAN_OR_EQUAL == this.comparison)
+      return " >= ?"; 
+    if (Comparison.LESS_THAN == this.comparison)
+      return " < ?"; 
+    if (Comparison.LESS_THAN_OR_EQUAL == this.comparison)
+      return " <= ?"; 
+    if (Comparison.IS_NULL == this.comparison)
+      return " IS NULL"; 
+    if (Comparison.IS_NOT_NULL == this.comparison)
+      return " IS NOT NULL"; 
+    throw new Exception("Can not compute SQL expression for: " + this.comparison);
+  }
+  
+  public List<ColumnData> getColumnData(TableSchema tableSchema) throws Exception {
+    List<ColumnData> columnDataList = new ArrayList<ColumnData>(1);
+    columnDataList.add(tableSchema.getColumnFromName(this.columnName));
+    return columnDataList;
+  }
+  
+  public List<TypedValue> getQueryValues(TableSchema tableSchema, Variables variables) throws Exception {
+    List<TypedValue> values = new Vector<TypedValue>();
+    if (this.comparison.requiresValue()) {
+      String value = this.expression.getValue(variables);
+      ColumnData columnData = tableSchema.getColumnFromName(this.columnName);
+      values.add(new TypedValue(columnData.getColumnType(), value));
+    } 
+    return values;
+  }
+  
+  public String getComparisonString() {
+    return this.columnName + "|" + this.comparison.name();
+  }
+  
+  public String toString() {
+    return this.comparison.name() + "(" + this.columnName + ")" + this.expression;
+  }
+}
+Summary of Changes:
+Imports: Changed import org.apache.log4j.Logger; to import org.slf4j.Logger; and import org.slf4j.LoggerFactory;.
+Logger Initialization: Changed Logger.getLogger(getClass()); to LoggerFactory.getLogger(getClass());.
+These changes will migrate your class from Log4j to SLF4J. Make sure to update the dependencies in your pom.xml as described earlier and test your application thoroughly to ensure that logging works as expected.
+
