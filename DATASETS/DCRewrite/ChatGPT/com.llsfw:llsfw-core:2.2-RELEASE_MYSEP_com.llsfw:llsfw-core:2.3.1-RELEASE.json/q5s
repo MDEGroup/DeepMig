@@ -1,0 +1,64 @@
+You are a Java code assistant. Given this Java class: 
+
+package com.llsfw.core.scheduler;
+
+import java.util.Random;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.scheduling.quartz.QuartzJobBean;
+
+public abstract class AbstractBaseJob extends QuartzJobBean {
+  private static final Logger LOG = LogManager.getLogger();
+  
+  private ApplicationContext applicationContext;
+  
+  public ApplicationContext getApplicationContext() {
+    return this.applicationContext;
+  }
+  
+  public void setApplicationContext(ApplicationContext applicationContext) {
+    this.applicationContext = applicationContext;
+  }
+  
+  protected abstract void executeInternal(JobExecutionContext paramJobExecutionContext) throws JobExecutionException;
+  
+  public void sleep(String name, int time) {
+    try {
+      Random r = new Random();
+      int rInt = r.nextInt(time);
+      LOG.info(name + "+ rInt + ");
+      Thread.sleep(rInt);
+    } catch (InterruptedException e) {
+      LOG.error("sleep:", e);
+    } 
+  }
+}
+
+
+
+Can you show me just the required modification to perform the migration from log4j to slf4j library please?
+
+To modify the `AbstractBaseJob` class from using Log4j to SLF4J, you should replace the logger import and instantiation. Below are the exact changes you would need to apply:
+
+### Modifications
+
+**Before (using Log4j):**
+```java
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+private static final Logger LOG = LogManager.getLogger();
+```
+
+**After (using SLF4J):**
+```java
+import org.slf4j.Logger;
+import import org.slf4j.LoggerFactory;
+
+private static final Logger LOG = LoggerFactory.getLogger(AbstractBaseJob.class);
+```
+
+These changes will switch the logging setup from Log4j to SLF4J, ensuring that `AbstractBaseJob` utilizes SLF4J's logging facade. This allows for more flexibility in changing logging backends and is generally more compatible with various Spring contexts.

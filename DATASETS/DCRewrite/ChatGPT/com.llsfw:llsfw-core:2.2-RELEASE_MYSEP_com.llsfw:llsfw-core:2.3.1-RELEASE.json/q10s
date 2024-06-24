@@ -1,0 +1,111 @@
+You are a Java code assistant. Given this Java class: 
+
+package com.llsfw.core.common;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.sql.Date;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.util.StringUtils;
+
+public class AutoLoadBean {
+  private static Logger logger = LoggerFactory.getLogger(AutoLoadBean.class);
+  
+  private static final String DATE_FORMAT_1 = "yyyy-MM-dd";
+  
+  private static final String DATE_FORMAT_2 = "yyyy-MM-dd HH:mm:ss";
+  
+  private static final String DATE_MATCHER_1 = "^\\d{4}(\\-)\\d{1,2}\\1\\d{1,2}$";
+  
+  private static final String DATE_MATCHER_2 = "^\\d{4}(\\-)\\d{1,2}\\1\\d{1,2}(\\s([0-1]\\d|[2][0-3])\\:[0-5]\\d\\:[0-5]\\d)$";
+  
+  public static <T> T load(T bean, Map<String, String[]> requestMap) throws NoSuchMethodException, SecurityException {
+    Field[] fields = bean.getClass().getDeclaredFields();
+    for (Field field : fields) {
+      Set<String> names = requestMap.keySet();
+      for (String name : names) {
+        String value = "";
+        if (!name.equals(field.getName()))
+          continue; 
+        try {
+          value = StringUtils.hasText(((String[])requestMap.get(name))[0]) ? ((String[])requestMap.get(name))[0].trim() : "";
+        } catch (Exception e) {
+          logger.debug("+ name + ");
+          continue;
+        } 
+        String fieldName = field.getName();
+        Class<?> cl = field.getType();
+        String setName = getSetMethodName(fieldName);
+        Method setMethod = null;
+        try {
+          setMethod = bean.getClass().getMethod(setName, new Class[] { field.getType() });
+        } catch (Exception e) {
+          setMethod = bean.getClass().getMethod("set" + fieldName, new Class[] { field.getType() });
+        } 
+        try {
+          if (!StringUtils.hasText(value)) {
+            setMethod.invoke(bean, new Object[] { null });
+          } else if (cl == String.class) {
+            setMethod.invoke(bean, new Object[] { value });
+          } else if (cl == Byte.class || cl == Short.class || cl == Integer.class || cl == Long.class || cl == Float.class || cl == Double.class || cl == Boolean.class || cl == Character.class) {
+            Method valueOf = cl.getMethod("valueOf", new Class[] { String.class });
+            Object valueObj = valueOf.invoke(cl, new Object[] { value });
+            setMethod.invoke(bean, new Object[] { valueObj });
+          } else if (cl == Date.class || cl == Date.class) {
+            String formatChar = null;
+            if (Pattern.compile("^\\d{4}(\\-)\\d{1,2}\\1\\d{1,2}$").matcher(value).find()) {
+              formatChar = "yyyy-MM-dd";
+            } else if (Pattern.compile("^\\d{4}(\\-)\\d{1,2}\\1\\d{1,2}(\\s([0-1]\\d|[2][0-3])\\:[0-5]\\d\\:[0-5]\\d)$").matcher(value).find()) {
+              formatChar = "yyyy-MM-dd HH:mm:ss";
+            } 
+            if (formatChar != null) {
+              Date date = (new SimpleDateFormat(formatChar)).parse(value);
+              Object dateObj = cl.newInstance();
+              Method setTime = cl.getMethod("setTime", new Class[] { long.class });
+              setTime.invoke(dateObj, new Object[] { Long.valueOf(date.getTime()) });
+              setMethod.invoke(bean, new Object[] { dateObj });
+            } else {
+              logger.warn(");
+              continue;
+            } 
+          } else {
+            logger.warn(");
+            continue;
+          } 
+          logger.debug("+ fieldName + "+ value);
+          break;
+        } catch (Exception e) {
+          logger.warn("+ field.getType().getSimpleName() + ",+ value);
+        } 
+      } 
+    } 
+    return bean;
+  }
+  
+  private static String getSetMethodName(String fieldName) {
+    String stringLetter = fieldName.substring(0, 1).toUpperCase();
+    String setName = "set" + stringLetter + fieldName.substring(1);
+    logger.debug("+ setName + ");
+    return setName;
+  }
+}
+
+Can you show me just the required modification to perform the migration from log4j to slf4j library please?
+
+The given class `AutoLoadBean` already uses the SLF4J library for logging, as evidenced by the import statements and the logger instantiation in the class. There are no changes needed for migration from Log4j to SLF4J in this class, as it's already properly configured for SLF4J.
+
+**Current Configuration using SLF4J:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+private static Logger logger = LoggerFactory.getLogger(AutoLoadBean.class);
+```
+
+This is the correct setup for using the SLF4J logging facade. If your intent was to check if this class was already using SLF4J or needed modifications for some other aspect, please specify, but as far as migration from Log4j to SLF4J goes, this class requires no changes.

@@ -1,0 +1,130 @@
+You are a Java code assistant. Given this Java class: 
+
+package com.llsfw.core.security.session.redis;
+
+import com.llsfw.core.security.session.SerializeUtils;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.shiro.cache.Cache;
+import org.springframework.util.CollectionUtils;
+
+public class RedisCache<K, V> implements Cache<K, V> {
+  private static final Logger LOG = LogManager.getLogger();
+  
+  private DbManager cache;
+  
+  private String keyPrefix;
+  
+  public RedisCache(DbManager cache, String prefix) {
+    this(cache);
+    this.keyPrefix = prefix;
+  }
+  
+  public RedisCache(DbManager cache) {
+    if (cache == null)
+      throw new IllegalArgumentException("Cache argument cannot be null."); 
+    this.cache = cache;
+  }
+  
+  private byte[] getByteKey(K key) {
+    if (key instanceof String) {
+      String preKey = this.keyPrefix + key;
+      return preKey.getBytes();
+    } 
+    return SerializeUtils.serialize(key);
+  }
+  
+  public V get(K key) {
+    LOG.debug("[cache]key [" + key + "]");
+    if (key == null)
+      return null; 
+    byte[] rawValue = this.cache.get(getByteKey(key));
+    return (V)SerializeUtils.deserialize(rawValue);
+  }
+  
+  public V put(K key, V value) {
+    LOG.debug("[cache]key [" + key + "]");
+    this.cache.set(getByteKey(key), SerializeUtils.serialize(value));
+    return value;
+  }
+  
+  public V remove(K key) {
+    LOG.debug("[cache]key [" + key + "]");
+    V previous = get(key);
+    this.cache.del(getByteKey(key));
+    return previous;
+  }
+  
+  public void clear() {
+    LOG.debug("[cache]);
+    this.cache.flushDB();
+  }
+  
+  public int size() {
+    Long longSize = new Long(this.cache.dbSize());
+    return longSize.intValue();
+  }
+  
+  public Set<K> keys() {
+    LOG.debug("[cache]);
+    Set<byte[]> keys = this.cache.keys(this.keyPrefix + "*");
+    if (CollectionUtils.isEmpty(keys))
+      return Collections.emptySet(); 
+    Set<K> newKeys = new HashSet<>();
+    for (byte[] key : keys)
+      newKeys.add((K)key); 
+    return newKeys;
+  }
+  
+  public Collection<V> values() {
+    LOG.debug("[cache]);
+    Set<byte[]> keys = this.cache.keys(this.keyPrefix + "*");
+    if (!CollectionUtils.isEmpty(keys)) {
+      List<V> values = new ArrayList<>(keys.size());
+      for (byte[] key : keys) {
+        V value = get((K)key);
+        if (value != null)
+          values.add(value); 
+      } 
+      return Collections.unmodifiableList(values);
+    } 
+    return Collections.emptyList();
+  }
+}
+
+
+Can you show me just the required modification to perform the migration from log4j to slf4j library please?
+
+To migrate the `RedisCache` class from using Log4j to SLF4J, you need to make the following modifications:
+
+1. **Change the Logger import:**
+   Replace `org.apache.logging.log4j.LogManager` and `org.apache.logging.log4j.Logger` with `org.slf4j.Logger` and `org.slf4j.LoggerFactory`.
+
+2. **Change the Logger initialization:**
+   Replace `LogManager.getLogger()` with `LoggerFactory.getLogger(RedisCache.class)`.
+
+### Modifications
+
+**Before (Log4j)**
+```java
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+private static final Logger LOG = LogManager.getLogger();
+```
+
+**After (SLF4J)**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+private static final Logger LOG = LoggerFactory.getLogger(RedisCache.class);
+```
+
+These changes update the logging framework from Log4j to SLF4J for the `RedisCache` class, providing a more flexible abstraction for logging without being bound to a specific logging implementation.

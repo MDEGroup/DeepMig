@@ -1,0 +1,361 @@
+You are a Java code assistant. Given this Java class: 
+
+package com.llsfw.core.common;
+
+import com.llsfw.core.exception.SystemException;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.net.ftp.FTPClient;
+import org.apache.commons.net.ftp.FTPFile;
+import org.apache.commons.net.ftp.FTPHTTPClient;
+import org.apache.commons.net.ftp.FTPReply;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+public class Ftp {
+  private static final Logger LOG = LogManager.getLogger();
+  
+  private FTPClient ftpClient = null;
+  
+  private String charSet = "UTF-8";
+  
+  private String remoteCharSet = "iso-8859-1";
+  
+  private int byteSize = 1024;
+  
+  private int sizeL100 = 100;
+  
+  private int sizeL10 = 10;
+  
+  private String separated = "/";
+  
+  public Ftp(String charSet) {
+    this.ftpClient = new FTPClient();
+    this.charSet = charSet;
+  }
+  
+  public Ftp(String charSet, String proxyHost, String porxyPort) {
+    if (!StringUtils.isEmpty(proxyHost) && !StringUtils.isEmpty(porxyPort)) {
+      this.ftpClient = (FTPClient)new FTPHTTPClient(proxyHost, (new Integer(porxyPort)).intValue());
+    } else {
+      this.ftpClient = new FTPClient();
+    } 
+    this.charSet = charSet;
+  }
+  
+  public boolean connect(String hostname, int port, String username, String password) throws SystemException {
+    try {
+      this.ftpClient.connect(hostname, port);
+      this.ftpClient.setControlEncoding(this.charSet);
+      if (FTPReply.isPositiveCompletion(this.ftpClient.getReplyCode()) && this.ftpClient.login(username, password))
+        return true; 
+      disconnect();
+      return false;
+    } catch (Exception e) {
+      throw new SystemException(e);
+    } 
+  }
+  
+  public void disconnect() throws IOException {
+    if (this.ftpClient.isConnected())
+      this.ftpClient.disconnect(); 
+  }
+  
+  public String upload(String local, String remote) throws SystemException {
+    try {
+      String result;
+      this.ftpClient.enterLocalPassiveMode();
+      this.ftpClient.setFileType(2);
+      this.ftpClient.setControlEncoding(this.charSet);
+      String remoteFileName = remote;
+      if (remote.contains(this.separated)) {
+        remoteFileName = remote.substring(remote.lastIndexOf(this.separated) + 1);
+        if ("0".equals(createDirecroty(remote, this.ftpClient))) {
+          LOG.info(");
+          return "0";
+        } 
+      } 
+      FTPFile[] files = this.ftpClient.listFiles(new String(remoteFileName.getBytes(this.charSet), this.remoteCharSet));
+      if (files.length == 1) {
+        long remoteSize = files[0].getSize();
+        File f = new File(local);
+        long localSize = f.length();
+        if (remoteSize >= localSize) {
+          LOG.info(");
+          result = "1";
+        } else {
+          result = uploadFile(remoteFileName, f, this.ftpClient, remoteSize);
+          result = reUploadFile(result, remoteFileName, f);
+        } 
+      } else {
+        result = uploadFile(remoteFileName, new File(local), this.ftpClient, 0L);
+      } 
+      return result;
+    } catch (Exception e) {
+      throw new SystemException(e);
+    } 
+  }
+  
+  private String reUploadFile(String result, String remoteFileName, File f) throws SystemException {
+    try {
+      String rs = result;
+      if ("-1".equals(rs)) {
+        if (!this.ftpClient.deleteFile(remoteFileName)) {
+          LOG.info(");
+          return "-3";
+        } 
+        rs = uploadFile(remoteFileName, f, this.ftpClient, 0L);
+      } 
+      return rs;
+    } catch (Exception e) {
+      throw new SystemException(e);
+    } 
+  }
+  
+  public String download(String remote, String local) throws IOException {
+    try {
+      String result;
+      this.ftpClient.enterLocalPassiveMode();
+      this.ftpClient.setFileType(2);
+      FTPFile[] files = this.ftpClient.listFiles(new String(remote.getBytes(this.charSet), this.remoteCharSet));
+      if (files.length != 1) {
+        LOG.info(");
+        result = "-1";
+      } else {
+        result = download(files, local, remote);
+      } 
+      return result;
+    } catch (IOException e) {
+      throw e;
+    } 
+  }
+  
+  private String download(FTPFile[] files, String local, String remote) throws IOException {
+    String result;
+    long lRemoteSize = files[0].getSize();
+    File f = new File(local);
+    if (f.exists()) {
+      long localSize = f.length();
+      if (localSize >= lRemoteSize) {
+        LOG.info(");
+        result = "1";
+      } else {
+        result = downloaddd(localSize, f, remote, lRemoteSize);
+      } 
+    } else {
+      result = downloadCreate(f, remote, lRemoteSize);
+    } 
+    return result;
+  }
+  
+  private String downloaddd(long localSize, File f, String remote, long lRemoteSize) throws IOException {
+    String result;
+    BufferedInputStream bis = null;
+    BufferedOutputStream bos = null;
+    try {
+      this.ftpClient.setRestartOffset(localSize);
+      bos = new BufferedOutputStream(new FileOutputStream(f, true));
+      bis = new BufferedInputStream(this.ftpClient.retrieveFileStream(new String(remote.getBytes(this.charSet), this.remoteCharSet)));
+      byte[] bytes = null;
+      bytes = new byte[this.byteSize];
+      long step = 0L;
+      step = lRemoteSize / this.sizeL100;
+      long process = 0L;
+      process = localSize / step;
+      int c;
+      while ((c = bis.read(bytes)) != -1) {
+        bos.write(bytes, 0, c);
+        downloadProcess(localSize, process, c, step);
+      } 
+    } finally {
+      bis.close();
+      bos.flush();
+      bos.close();
+    } 
+    boolean isDo = false;
+    if (this.ftpClient.sendNoOp())
+      isDo = this.ftpClient.completePendingCommand(); 
+    if (isDo) {
+      result = "1";
+    } else {
+      result = "0";
+    } 
+    return result;
+  }
+  
+  private String downloadCreate(File f, String remote, long lRemoteSize) throws IOException {
+    String result;
+    BufferedInputStream bis = null;
+    BufferedOutputStream bos = null;
+    try {
+      bos = new BufferedOutputStream(new FileOutputStream(f));
+      bis = new BufferedInputStream(this.ftpClient.retrieveFileStream(new String(remote.getBytes(this.charSet), this.remoteCharSet)));
+      long step = 0L;
+      step = lRemoteSize / this.sizeL100;
+      long process = 0L;
+      long localSize = 0L;
+      byte[] bytes = null;
+      bytes = new byte[this.byteSize];
+      int c;
+      while ((c = bis.read(bytes)) != -1) {
+        bos.write(bytes, 0, c);
+        downloadProcess(localSize, process, c, step);
+      } 
+    } finally {
+      bis.close();
+      bos.flush();
+      bos.close();
+    } 
+    boolean isDo = false;
+    if (this.ftpClient.sendNoOp())
+      isDo = this.ftpClient.completePendingCommand(); 
+    if (isDo) {
+      result = "1";
+    } else {
+      result = "0";
+    } 
+    return result;
+  }
+  
+  private void downloadProcess(long localSize, long process, int c, long step) {
+    long ls = localSize;
+    ls += c;
+    long nowProcess = ls / step;
+    if (nowProcess > process) {
+      long pc = nowProcess;
+      if (pc % this.sizeL10 == 0L)
+        LOG.info("+ pc); 
+    } 
+  }
+  
+  public FTPFile[] getremoteFiles(String remotePath) throws SystemException {
+    try {
+      this.ftpClient.enterLocalPassiveMode();
+      this.ftpClient.setFileType(2);
+      return this.ftpClient.listFiles(remotePath);
+    } catch (Exception e) {
+      throw new SystemException(e);
+    } 
+  }
+  
+  public boolean removeFile(String remotePath) throws IOException {
+    boolean flag = false;
+    if (this.ftpClient != null) {
+      this.ftpClient.enterLocalPassiveMode();
+      this.ftpClient.setFileType(2);
+      flag = this.ftpClient.deleteFile(new String(remotePath.getBytes(this.charSet), this.remoteCharSet));
+    } 
+    return flag;
+  }
+  
+  private String uploadFile(String remoteFile, File localFile, FTPClient fc, long remoteSize) throws IOException {
+    RandomAccessFile raf = null;
+    BufferedOutputStream bos = null;
+    try {
+      long step = 0L;
+      step = localFile.length() / this.sizeL100;
+      long process = 0L;
+      long localreadbytes = 0L;
+      raf = new RandomAccessFile(localFile, "r");
+      bos = new BufferedOutputStream(fc.appendFileStream(new String(remoteFile.getBytes(this.charSet), this.remoteCharSet)), 1024);
+      if (remoteSize > 0L) {
+        fc.setRestartOffset(remoteSize);
+        process = remoteSize / step;
+        raf.seek(remoteSize);
+        localreadbytes = remoteSize;
+      } 
+      byte[] bytes = null;
+      bytes = new byte[this.byteSize];
+      int c;
+      while (-1 != (c = raf.read(bytes))) {
+        bos.write(bytes, 0, c);
+        uploadProcess(localreadbytes, c, step, process);
+      } 
+      boolean result = false;
+      String status = null;
+      if (this.ftpClient.sendNoOp())
+        result = this.ftpClient.completePendingCommand(); 
+      if (remoteSize > 0L) {
+        status = result ? "1" : "-1";
+      } else {
+        status = result ? "2" : "-2";
+      } 
+      return status;
+    } finally {
+      if (bos != null) {
+        bos.flush();
+        bos.close();
+      } 
+      if (raf != null)
+        raf.close(); 
+    } 
+  }
+  
+  private static void uploadProcess(long localreadbytes, int c, long step, long process) {
+    long lb = localreadbytes;
+    lb += c;
+    if (lb / step != process) {
+      long pr = lb / step;
+      LOG.info("+ pr);
+    } 
+  }
+  
+  private String createDirecroty(String remote, FTPClient fc) throws IOException {
+    String status = "1";
+    String directory = remote.substring(0, remote.lastIndexOf(this.separated) + 1);
+    if (!this.separated.equalsIgnoreCase(directory) && !fc.changeWorkingDirectory(new String(directory.getBytes(this.charSet), this.remoteCharSet)))
+      status = createDirecroty(directory, fc, remote); 
+    return status;
+  }
+  
+  private String createDirecroty(String directory, FTPClient fc, String remote) throws IOException {
+    int start = 0;
+    if (directory.startsWith(this.separated))
+      start = 1; 
+    int end = directory.indexOf(this.separated, start);
+    do {
+      String subDirectory = new String(remote.substring(start, end).getBytes(this.charSet), this.remoteCharSet);
+      if (!fc.changeWorkingDirectory(subDirectory))
+        if (fc.makeDirectory(subDirectory)) {
+          fc.changeWorkingDirectory(subDirectory);
+        } else {
+          LOG.info(");
+          return "0";
+        }  
+      start = end + 1;
+      end = directory.indexOf(this.separated, start);
+    } while (end > start);
+    return "1";
+  }
+}
+
+
+
+Can you show me just the required modification to perform the migration from log4j to slf4j library please?
+
+To migrate the `Ftp` class from using Log4j to SLF4J, you'll need to change the logger import statements and update how you instantiate the logger. Here's the specific modification you should make for the migration:
+
+### Modifications
+
+**Before (using Log4j):**
+```java
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+private static final Logger LOG = LogManager.getLogger();
+```
+
+**After (using SLF4J):**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+private static final Logger LOG = LoggerFactory.getLogger(Ftp.class);
+```
+
+These changes convert the logger setup to use SLF4J, which is a more flexible logging facade that can work with various logging implementations, including Log4j, Logback, and others. This is particularly useful in a context where you might want to switch logging configurations without changing the application code.
