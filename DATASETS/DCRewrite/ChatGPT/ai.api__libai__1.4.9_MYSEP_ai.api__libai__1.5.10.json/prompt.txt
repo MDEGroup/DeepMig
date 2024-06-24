@@ -1,0 +1,531 @@
+You are a code assistant. Given the following class implementation: 
+
+package ai.api;
+
+import ai.api.http.HttpClient;
+import ai.api.model.AIContext;
+import ai.api.model.AIRequest;
+import ai.api.model.AIResponse;
+import ai.api.model.Entity;
+import ai.api.model.Status;
+import ai.api.util.IOUtils;
+import ai.api.util.StringUtils;
+import com.google.gson.Gson;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonSyntaxException;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.reflect.Type;
+import java.net.HttpRetryException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Calendar;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.TimeZone;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+public class AIDataService {
+  private static final Logger Log = LogManager.getLogger(AIDataService.class);
+  
+  private static final AIServiceContext UNDEFINED_SERVICE_CONTEXT = null;
+  
+  private static final String REQUEST_METHOD_POST = "POST";
+  
+  private static final String REQUEST_METHOD_DELETE = "DELETE";
+  
+  private static final String REQUEST_METHOD_GET = "GET";
+  
+  private static final String DEFAULT_REQUEST_METHOD = "POST";
+  
+  private static final Gson GSON = GsonFactory.getDefaultFactory().getGson();
+  
+  private final AIConfiguration config;
+  
+  private final AIServiceContext defaultServiceContext;
+  
+  public AIDataService(AIConfiguration config, AIServiceContext serviceContext) {
+    if (config == null)
+      throw new IllegalArgumentException("config should not be null"); 
+    this.config = config.clone();
+    if (serviceContext == null) {
+      this.defaultServiceContext = (new AIServiceContextBuilder()).generateSessionId().build();
+    } else {
+      this.defaultServiceContext = serviceContext;
+    } 
+  }
+  
+  public AIDataService(AIConfiguration config) {
+    this(config, null);
+  }
+  
+  public AIServiceContext getContext() {
+    return this.defaultServiceContext;
+  }
+  
+  public AIResponse request(AIRequest request) throws AIServiceException {
+    return request(request, (RequestExtras)null);
+  }
+  
+  public AIResponse request(AIRequest request, AIServiceContext serviceContext) throws AIServiceException {
+    return request(request, (RequestExtras)null, serviceContext);
+  }
+  
+  public AIResponse request(AIRequest request, RequestExtras requestExtras) throws AIServiceException {
+    return request(request, requestExtras, UNDEFINED_SERVICE_CONTEXT);
+  }
+  
+  public AIResponse request(AIRequest request, RequestExtras requestExtras, AIServiceContext serviceContext) throws AIServiceException {
+    if (request == null)
+      throw new IllegalArgumentException("Request argument must not be null"); 
+    Log.debug("Start request");
+    try {
+      request.setLanguage(this.config.getApiAiLanguage());
+      request.setSessionId(getSessionId(serviceContext));
+      if (StringUtils.isEmpty(request.getTimezone()))
+        request.setTimezone(getTimeZone(serviceContext)); 
+      Map<String, String> additionalHeaders = null;
+      if (requestExtras != null) {
+        fillRequest(request, requestExtras);
+        additionalHeaders = requestExtras.getAdditionalHeaders();
+      } 
+      String queryData = GSON.toJson(request);
+      String response = doTextRequest(this.config.getQuestionUrl(getSessionId(serviceContext)), queryData, additionalHeaders);
+      if (StringUtils.isEmpty(response))
+        throw new AIServiceException("Empty response from ai service. Please check configuration and Internet connection."); 
+      Log.debug("Response json: " + response.replaceAll("[\r\n]+", " "));
+      AIResponse aiResponse = (AIResponse)GSON.fromJson(response, AIResponse.class);
+      if (aiResponse == null)
+        throw new AIServiceException("API.AI response parsed as null. Check debug log for details."); 
+      if (aiResponse.isError())
+        throw new AIServiceException(aiResponse); 
+      aiResponse.cleanup();
+      return aiResponse;
+    } catch (MalformedURLException e) {
+      Log.error("Malformed url should not be raised", e);
+      throw new AIServiceException("Wrong configuration. Please, connect to API.AI Service support", e);
+    } catch (JsonSyntaxException je) {
+      throw new AIServiceException("Wrong service answer format. Please, connect to API.AI Service support", je);
+    } 
+  }
+  
+  public AIResponse voiceRequest(InputStream voiceStream) throws AIServiceException {
+    return voiceRequest(voiceStream, new RequestExtras());
+  }
+  
+  public AIResponse voiceRequest(InputStream voiceStream, List<AIContext> aiContexts) throws AIServiceException {
+    return voiceRequest(voiceStream, new RequestExtras(aiContexts, null));
+  }
+  
+  public AIResponse voiceRequest(InputStream voiceStream, RequestExtras requestExtras) throws AIServiceException {
+    return voiceRequest(voiceStream, requestExtras, UNDEFINED_SERVICE_CONTEXT);
+  }
+  
+  public AIResponse voiceRequest(InputStream voiceStream, RequestExtras requestExtras, AIServiceContext serviceContext) throws AIServiceException {
+    assert voiceStream != null;
+    Log.debug("Start voice request");
+    try {
+      AIRequest request = new AIRequest();
+      request.setLanguage(this.config.getApiAiLanguage());
+      request.setSessionId(getSessionId(serviceContext));
+      request.setTimezone(getTimeZone(serviceContext));
+      Map<String, String> additionalHeaders = null;
+      if (requestExtras != null) {
+        fillRequest(request, requestExtras);
+        additionalHeaders = requestExtras.getAdditionalHeaders();
+      } 
+      String queryData = GSON.toJson(request);
+      Log.debug("Request json: " + queryData);
+      String response = doSoundRequest(voiceStream, queryData, additionalHeaders);
+      if (StringUtils.isEmpty(response))
+        throw new AIServiceException("Empty response from ai service. Please check configuration."); 
+      Log.debug("Response json: " + response);
+      AIResponse aiResponse = (AIResponse)GSON.fromJson(response, AIResponse.class);
+      if (aiResponse == null)
+        throw new AIServiceException("API.AI response parsed as null. Check debug log for details."); 
+      if (aiResponse.isError())
+        throw new AIServiceException(aiResponse); 
+      aiResponse.cleanup();
+      return aiResponse;
+    } catch (MalformedURLException e) {
+      Log.error("Malformed url should not be raised", e);
+      throw new AIServiceException("Wrong configuration. Please, connect to AI Service support", e);
+    } catch (JsonSyntaxException je) {
+      throw new AIServiceException("Wrong service answer format. Please, connect to API.AI Service support", je);
+    } 
+  }
+  
+  @Deprecated
+  public boolean resetContexts() {
+    AIRequest cleanRequest = new AIRequest();
+    cleanRequest.setQuery("empty_query_for_resetting_contexts");
+    cleanRequest.setResetContexts(Boolean.valueOf(true));
+    try {
+      AIResponse response = request(cleanRequest);
+      return !response.isError();
+    } catch (AIServiceException e) {
+      Log.error("Exception while contexts clean.", e);
+      return false;
+    } 
+  }
+  
+  public List<AIContext> getActiveContexts() throws AIServiceException {
+    return getActiveContexts(UNDEFINED_SERVICE_CONTEXT);
+  }
+  
+  public List<AIContext> getActiveContexts(AIServiceContext serviceContext) throws AIServiceException {
+    try {
+      return doRequest(ApiActiveContextListResponse.class, this.config
+          .getContextsUrl(getSessionId(serviceContext)), "GET");
+    } catch (BadResponseStatusException e) {
+      throw new AIServiceException(e.response);
+    } 
+  }
+  
+  public AIContext getActiveContext(String contextName) throws AIServiceException {
+    return getActiveContext(contextName, UNDEFINED_SERVICE_CONTEXT);
+  }
+  
+  public AIContext getActiveContext(String contextName, AIServiceContext serviceContext) throws AIServiceException {
+    try {
+      return doRequest(AIContext.class, this.config
+          .getContextsUrl(getSessionId(serviceContext), contextName), "GET");
+    } catch (BadResponseStatusException e) {
+      if (e.response.getStatus().getCode().intValue() == 404)
+        return null; 
+      throw new AIServiceException(e.response);
+    } 
+  }
+  
+  public List<String> addActiveContext(Iterable<AIContext> contexts) throws AIServiceException {
+    return addActiveContext(contexts, UNDEFINED_SERVICE_CONTEXT);
+  }
+  
+  public List<String> addActiveContext(Iterable<AIContext> contexts, AIServiceContext serviceContext) throws AIServiceException {
+    try {
+      ApiActiveContextNamesResponse response = doRequest(contexts, ApiActiveContextNamesResponse.class, this.config
+          .getContextsUrl(getSessionId(serviceContext)), "POST");
+      return response.names;
+    } catch (BadResponseStatusException e) {
+      throw new AIServiceException(e.response);
+    } 
+  }
+  
+  public String addActiveContext(AIContext context) throws AIServiceException {
+    return addActiveContext(context, UNDEFINED_SERVICE_CONTEXT);
+  }
+  
+  public String addActiveContext(AIContext context, AIServiceContext serviceContext) throws AIServiceException {
+    try {
+      ApiActiveContextNamesResponse response = doRequest(context, ApiActiveContextNamesResponse.class, this.config
+          .getContextsUrl(getSessionId(serviceContext)), "POST");
+      return (response.names != null && response.names.size() > 0) ? response.names.get(0) : null;
+    } catch (BadResponseStatusException e) {
+      throw new AIServiceException(e.response);
+    } 
+  }
+  
+  public void resetActiveContexts() throws AIServiceException {
+    resetActiveContexts(UNDEFINED_SERVICE_CONTEXT);
+  }
+  
+  public void resetActiveContexts(AIServiceContext serviceContext) throws AIServiceException {
+    try {
+      doRequest(AIResponse.class, this.config.getContextsUrl(getSessionId(serviceContext)), "DELETE");
+    } catch (BadResponseStatusException e) {
+      throw new AIServiceException(e.response);
+    } 
+  }
+  
+  public boolean removeActiveContext(String contextName) throws AIServiceException {
+    return removeActiveContext(contextName, UNDEFINED_SERVICE_CONTEXT);
+  }
+  
+  public boolean removeActiveContext(String contextName, AIServiceContext serviceContext) throws AIServiceException {
+    try {
+      doRequest(AIResponse.class, this.config.getContextsUrl(getSessionId(serviceContext), contextName), "DELETE");
+      return true;
+    } catch (BadResponseStatusException e) {
+      if (e.response.getStatus().getCode().intValue() == 404)
+        return false; 
+      throw new AIServiceException(e.response);
+    } 
+  }
+  
+  public AIResponse uploadUserEntity(Entity userEntity) throws AIServiceException {
+    return uploadUserEntity(userEntity, UNDEFINED_SERVICE_CONTEXT);
+  }
+  
+  public AIResponse uploadUserEntity(Entity userEntity, AIServiceContext serviceContext) throws AIServiceException {
+    return uploadUserEntities(Collections.singleton(userEntity), serviceContext);
+  }
+  
+  public AIResponse uploadUserEntities(Collection<Entity> userEntities) throws AIServiceException {
+    return uploadUserEntities(userEntities, UNDEFINED_SERVICE_CONTEXT);
+  }
+  
+  public AIResponse uploadUserEntities(Collection<Entity> userEntities, AIServiceContext serviceContext) throws AIServiceException {
+    if (userEntities == null || userEntities.size() == 0)
+      throw new AIServiceException("Empty entities list"); 
+    String requestData = GSON.toJson(userEntities);
+    try {
+      String response = doTextRequest(this.config.getUserEntitiesEndpoint(getSessionId(serviceContext)), requestData);
+      if (StringUtils.isEmpty(response))
+        throw new AIServiceException("Empty response from ai service. Please check configuration and Internet connection."); 
+      Log.debug("Response json: " + response);
+      AIResponse aiResponse = (AIResponse)GSON.fromJson(response, AIResponse.class);
+      if (aiResponse == null)
+        throw new AIServiceException("API.AI response parsed as null. Check debug log for details."); 
+      if (aiResponse.isError())
+        throw new AIServiceException(aiResponse); 
+      aiResponse.cleanup();
+      return aiResponse;
+    } catch (MalformedURLException e) {
+      Log.error("Malformed url should not be raised", e);
+      throw new AIServiceException("Wrong configuration. Please, connect to AI Service support", e);
+    } catch (JsonSyntaxException je) {
+      throw new AIServiceException("Wrong service answer format. Please, connect to API.AI Service support", je);
+    } 
+  }
+  
+  protected String doTextRequest(String requestJson, AIServiceContext serviceContext) throws MalformedURLException, AIServiceException {
+    return doTextRequest(this.config.getQuestionUrl(getSessionId(serviceContext)), requestJson);
+  }
+  
+  protected String doTextRequest(String requestJson) throws MalformedURLException, AIServiceException {
+    return doTextRequest(requestJson, UNDEFINED_SERVICE_CONTEXT);
+  }
+  
+  protected String doTextRequest(String endpoint, String requestJson) throws MalformedURLException, AIServiceException {
+    return doTextRequest(endpoint, requestJson, null);
+  }
+  
+  protected String doTextRequest(String endpoint, String requestJson, Map<String, String> additionalHeaders) throws MalformedURLException, AIServiceException {
+    assert endpoint != null;
+    assert requestJson != null;
+    HttpURLConnection connection = null;
+    try {
+      URL url = new URL(endpoint);
+      String queryData = requestJson;
+      Log.debug("Request json: " + queryData);
+      if (this.config.getProxy() != null) {
+        connection = (HttpURLConnection)url.openConnection(this.config.getProxy());
+      } else {
+        connection = (HttpURLConnection)url.openConnection();
+      } 
+      connection.setRequestMethod("POST");
+      connection.setDoOutput(true);
+      connection.addRequestProperty("Authorization", "Bearer " + this.config.getApiKey());
+      connection.addRequestProperty("Content-Type", "application/json; charset=utf-8");
+      connection.addRequestProperty("Accept", "application/json");
+      if (additionalHeaders != null)
+        for (Map.Entry<String, String> entry : additionalHeaders.entrySet())
+          connection.addRequestProperty(entry.getKey(), entry.getValue());  
+      connection.connect();
+      BufferedOutputStream outputStream = new BufferedOutputStream(connection.getOutputStream());
+      IOUtils.writeAll(queryData, outputStream);
+      outputStream.close();
+      InputStream inputStream = new BufferedInputStream(connection.getInputStream());
+      String response = IOUtils.readAll(inputStream);
+      inputStream.close();
+      return response;
+    } catch (IOException e) {
+      if (connection != null)
+        try {
+          InputStream errorStream = connection.getErrorStream();
+          if (errorStream != null) {
+            String errorString = IOUtils.readAll(errorStream);
+            Log.debug(errorString);
+            return errorString;
+          } 
+          throw new AIServiceException("Can't connect to the api.ai service.", e);
+        } catch (IOException ex) {
+          Log.warn("Can't read error response", ex);
+        }  
+      Log.error("Can't make request to the API.AI service. Please, check connection settings and API access token.", e);
+      throw new AIServiceException("Can't make request to the API.AI service. Please, check connection settings and API access token.", e);
+    } finally {
+      if (connection != null)
+        connection.disconnect(); 
+    } 
+  }
+  
+  protected String doSoundRequest(InputStream voiceStream, String queryData) throws MalformedURLException, AIServiceException {
+    return doSoundRequest(voiceStream, queryData, null, UNDEFINED_SERVICE_CONTEXT);
+  }
+  
+  protected String doSoundRequest(InputStream voiceStream, String queryData, Map<String, String> additionalHeaders) throws MalformedURLException, AIServiceException {
+    return doSoundRequest(voiceStream, queryData, additionalHeaders, UNDEFINED_SERVICE_CONTEXT);
+  }
+  
+  protected String doSoundRequest(InputStream voiceStream, String queryData, Map<String, String> additionalHeaders, AIServiceContext serviceContext) throws MalformedURLException, AIServiceException {
+    assert voiceStream != null;
+    assert queryData != null;
+    HttpURLConnection connection = null;
+    HttpClient httpClient = null;
+    try {
+      URL url = new URL(this.config.getQuestionUrl(getSessionId(serviceContext)));
+      Log.debug("Connecting to {}", url);
+      if (this.config.getProxy() != null) {
+        connection = (HttpURLConnection)url.openConnection(this.config.getProxy());
+      } else {
+        connection = (HttpURLConnection)url.openConnection();
+      } 
+      connection.addRequestProperty("Authorization", "Bearer " + this.config.getApiKey());
+      connection.addRequestProperty("Accept", "application/json");
+      if (additionalHeaders != null)
+        for (Map.Entry<String, String> entry : additionalHeaders.entrySet())
+          connection.addRequestProperty(entry.getKey(), entry.getValue());  
+      connection.setRequestMethod("POST");
+      connection.setDoInput(true);
+      connection.setDoOutput(true);
+      httpClient = new HttpClient(connection);
+      httpClient.setWriteSoundLog(this.config.isWriteSoundLog());
+      httpClient.connectForMultipart();
+      httpClient.addFormPart("request", queryData);
+      httpClient.addFilePart("voiceData", "voice.wav", voiceStream);
+      httpClient.finishMultipart();
+      String response = httpClient.getResponse();
+      return response;
+    } catch (IOException e) {
+      if (httpClient != null) {
+        String errorString = httpClient.getErrorString();
+        Log.debug(errorString);
+        if (!StringUtils.isEmpty(errorString))
+          return errorString; 
+        if (e instanceof HttpRetryException) {
+          AIResponse response = new AIResponse();
+          int code = ((HttpRetryException)e).responseCode();
+          Status status = Status.fromResponseCode(code);
+          status.setErrorDetails(((HttpRetryException)e).getReason());
+          response.setStatus(status);
+          throw new AIServiceException(response);
+        } 
+      } 
+      Log.error("Can't make request to the API.AI service. Please, check connection settings and API.AI keys.", e);
+      throw new AIServiceException("Can't make request to the API.AI service. Please, check connection settings and API.AI keys.", e);
+    } finally {
+      if (connection != null)
+        connection.disconnect(); 
+    } 
+  }
+  
+  protected <TResponse> TResponse doRequest(Type responseType, String endpoint, String method) throws AIServiceException, BadResponseStatusException {
+    return doRequest(responseType, endpoint, method, (Map<String, String>)null);
+  }
+  
+  protected <TRequest, TResponse> TResponse doRequest(TRequest request, Type responseType, String endpoint, String method) throws AIServiceException, BadResponseStatusException {
+    return doRequest(request, responseType, endpoint, method, (Map<String, String>)null);
+  }
+  
+  protected <TResponse> TResponse doRequest(Type responseType, String endpoint, String method, Map<String, String> additionalHeaders) throws AIServiceException, BadResponseStatusException {
+    return doRequest(null, responseType, endpoint, method, additionalHeaders);
+  }
+  
+  protected <TRequest, TResponse> TResponse doRequest(TRequest request, Type responseType, String endpoint, String method, Map<String, String> additionalHeaders) throws AIServiceException, BadResponseStatusException {
+    assert endpoint != null;
+    HttpURLConnection connection = null;
+    try {
+      URL url = new URL(endpoint);
+      String queryData = (request != null) ? GSON.toJson(request) : null;
+      String requestMethod = (method != null) ? method : "POST";
+      Log.debug("Request json: " + queryData);
+      if (this.config.getProxy() != null) {
+        connection = (HttpURLConnection)url.openConnection(this.config.getProxy());
+      } else {
+        connection = (HttpURLConnection)url.openConnection();
+      } 
+      if (queryData != null && !"POST".equals(requestMethod))
+        throw new AIServiceException("Non-empty request should be sent using POST method"); 
+      connection.setRequestMethod(requestMethod);
+      if ("POST".equals(requestMethod))
+        connection.setDoOutput(true); 
+      connection.addRequestProperty("Authorization", "Bearer " + this.config.getApiKey());
+      connection.addRequestProperty("Content-Type", "application/json; charset=utf-8");
+      connection.addRequestProperty("Accept", "application/json");
+      if (additionalHeaders != null)
+        for (Map.Entry<String, String> entry : additionalHeaders.entrySet())
+          connection.addRequestProperty(entry.getKey(), entry.getValue());  
+      connection.connect();
+      if (queryData != null) {
+        BufferedOutputStream outputStream = new BufferedOutputStream(connection.getOutputStream());
+        IOUtils.writeAll(queryData, outputStream);
+        outputStream.close();
+      } 
+      InputStream inputStream = new BufferedInputStream(connection.getInputStream());
+      String response = IOUtils.readAll(inputStream);
+      inputStream.close();
+      try {
+        AIResponse aiResponse = (AIResponse)GSON.fromJson(response, AIResponse.class);
+        if (aiResponse.getStatus() != null && aiResponse.getStatus().getCode().intValue() != 200)
+          throw new BadResponseStatusException(aiResponse); 
+      } catch (JsonParseException jsonParseException) {}
+      return (TResponse)GSON.fromJson(response, responseType);
+    } catch (IOException e) {
+      if (connection != null)
+        try {
+          InputStream errorStream = connection.getErrorStream();
+          if (errorStream != null) {
+            String errorString = IOUtils.readAll(errorStream);
+            Log.debug(errorString);
+            throw new AIServiceException(errorString, e);
+          } 
+          throw new AIServiceException("Can't connect to the api.ai service.", e);
+        } catch (IOException ex) {
+          Log.warn("Can't read error response", ex);
+        }  
+      Log.error("Can't make request to the API.AI service. Please, check connection settings and API access token.", e);
+      throw new AIServiceException("Can't make request to the API.AI service. Please, check connection settings and API access token.", e);
+    } finally {
+      if (connection != null)
+        connection.disconnect(); 
+    } 
+  }
+  
+  private void fillRequest(AIRequest request, RequestExtras requestExtras) {
+    assert request != null;
+    assert requestExtras != null;
+    if (requestExtras.hasContexts())
+      request.setContexts(requestExtras.getContexts()); 
+    if (requestExtras.hasEntities())
+      request.setEntities(requestExtras.getEntities()); 
+    if (requestExtras.getLocation() != null)
+      request.setLocation(requestExtras.getLocation()); 
+  }
+  
+  private String getSessionId(AIServiceContext serviceContext) {
+    return (serviceContext != null) ? serviceContext.getSessionId() : this.defaultServiceContext
+      .getSessionId();
+  }
+  
+  private String getTimeZone(AIServiceContext serviceContext) {
+    TimeZone timeZone = (serviceContext != null) ? serviceContext.getTimeZone() : this.defaultServiceContext.getTimeZone();
+    return ((timeZone != null) ? timeZone : Calendar.getInstance().getTimeZone()).getID();
+  }
+  
+  private static class ApiActiveContextNamesResponse extends AIResponse {
+    private static final long serialVersionUID = 1L;
+    
+    public List<String> names;
+  }
+  
+  private static interface ApiActiveContextListResponse extends List<AIContext> {}
+  
+  private static class BadResponseStatusException extends Exception {
+    private static final long serialVersionUID = 1L;
+    
+    private final AIResponse response;
+    
+    public BadResponseStatusException(AIResponse response) {
+      this.response = response;
+    }
+  }
+}
+
+highlight the code changes needed to migrate from log4j to the slf4j library.
