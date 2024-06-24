@@ -1,0 +1,113 @@
+You are a Java code assistant. Given this Java class: 
+
+package be.objectify.led.factory;
+
+import be.objectify.led.ObjectFactory;
+import be.objectify.led.util.StringUtils;
+import org.apache.log4j.Logger;
+
+public abstract class AbstractNumberFactory<T> implements ObjectFactory<T> {
+  private static final Logger LOGGER = Logger.getLogger(AbstractNumberFactory.class);
+  
+  public T createObject(String propertyValue) {
+    T t = null;
+    if (!StringUtils.isEmpty(propertyValue))
+      try {
+        t = parse(propertyValue);
+      } catch (NumberFormatException e) {
+        LOGGER.error(String.format("Unable to parse %s to number", new Object[] { propertyValue }), e);
+      }  
+    return t;
+  }
+  
+  protected abstract T parse(String paramString);
+}
+
+
+write the needed code to perform the migration from log4j to slf4j library. Highlight the code changes needed to adapt the file please.
+
+To migrate from log4j to slf4j in the `AbstractNumberFactory` class, you need to replace the log4j `Logger` with the slf4j `Logger`. Here are the changes needed to adapt the provided class:
+
+### Original Code with log4j
+```java
+package be.objectify.led.factory;
+
+import be.objectify.led.ObjectFactory;
+import be.objectify.led.util.StringUtils;
+import org.apache.log4j.Logger;
+
+public abstract class AbstractNumberFactory<T> implements ObjectFactory<T> {
+  private static final Logger LOGGER = Logger.getLogger(AbstractNumberFactory.class);
+  
+  public T createObject(String propertyValue) {
+    T t = null;
+    if (!StringUtils.isEmpty(propertyValue))
+      try {
+        t = parse(propertyValue);
+      } catch (NumberFormatException e) {
+        LOGGER.error(String.format("Unable to parse %s to number", new Object[] { propertyValue }), e);
+      }  
+    return t;
+  }
+  
+  protected abstract T parse(String paramString);
+}
+```
+
+### Modified Code with slf4j
+```java
+package be.objectify.led.factory;
+
+import be.objectify.led.ObjectFactory;
+import be.objectify.led.util.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public abstract class AbstractNumberFactory<T> implements ObjectFactory<T> {
+  private static final Logger LOGGER = LoggerFactory.getLogger(AbstractNumberFactory.class);
+  
+  public T createObject(String propertyValue) {
+    T t = null;
+    if (!StringUtils.isEmpty(propertyValue))
+      try {
+        t = parse(propertyValue);
+      } catch (NumberFormatException e) {
+        LOGGER.error(String.format("Unable to parse %s to number", propertyValue), e);
+      }  
+    return t;
+  }
+  
+  protected abstract T parse(String paramString);
+}
+```
+
+### Highlighted Changes
+1. Import changes:
+    ```java
+    import org.apache.log4j.Logger;
+    ```
+    is replaced by:
+    ```java
+    import org.slf4j.Logger;
+    import org.slf4j.LoggerFactory;
+    ```
+
+2. Logger initialization:
+    ```java
+    private static final Logger LOGGER = Logger.getLogger(AbstractNumberFactory.class);
+    ```
+    is replaced by:
+    ```java
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractNumberFactory.class);
+    ```
+
+3. String.format argument fix:
+    ```java
+    LOGGER.error(String.format("Unable to parse %s to number", new Object[] { propertyValue }), e);
+    ```
+    is replaced by:
+    ```java
+    LOGGER.error(String.format("Unable to parse %s to number", propertyValue), e);
+    ```
+
+These changes ensure that the logging mechanism is switched from log4j to slf4j, allowing for a more flexible and widely compatible logging framework.

@@ -1,0 +1,366 @@
+You are a Java code assistant. Given this Java class: 
+
+package com.omertron.fanarttvapi.model;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.log4j.Logger;
+
+public class WrapperMovie {
+  private static final Logger logger = Logger.getLogger(WrapperMovie.class);
+  
+  @JsonProperty("tmdb_id")
+  private int tmdbId;
+  
+  @JsonProperty("imdb_id")
+  private String imdbId;
+  
+  @JsonProperty("movieart")
+  private List<FanartTvArtwork> movieArt;
+  
+  @JsonProperty("moviedisc")
+  private List<FanartTvArtwork> movieDisc;
+  
+  @JsonProperty("movielogo")
+  private List<FanartTvArtwork> movieLogo;
+  
+  @JsonProperty("moviebackground")
+  private List<FanartTvArtwork> movieBackground;
+  
+  @JsonProperty("moviethumb")
+  private List<FanartTvArtwork> movieThumb;
+  
+  @JsonProperty("hdmovielogo")
+  private List<FanartTvArtwork> hdMovieLogo;
+  
+  @JsonProperty("moviebanner")
+  private List<FanartTvArtwork> movieBanner;
+  
+  public String getImdbId() {
+    return this.imdbId;
+  }
+  
+  public void setImdbId(String imdbId) {
+    this.imdbId = imdbId;
+  }
+  
+  public int getTmdbId() {
+    return this.tmdbId;
+  }
+  
+  public void setTmdbId(int tmdbId) {
+    this.tmdbId = tmdbId;
+  }
+  
+  public void setMovieDisc(List<FanartTvArtwork> movieDisc) {
+    this.movieDisc = movieDisc;
+  }
+  
+  public void setMovieLogo(List<FanartTvArtwork> movieLogo) {
+    this.movieLogo = movieLogo;
+  }
+  
+  public void setMovieArt(List<FanartTvArtwork> movieArt) {
+    this.movieArt = movieArt;
+  }
+  
+  public void setMovieBackground(List<FanartTvArtwork> movieBackground) {
+    this.movieBackground = movieBackground;
+  }
+  
+  public void setMovieThumb(List<FanartTvArtwork> movieThumb) {
+    this.movieThumb = movieThumb;
+  }
+  
+  public List<FanartTvArtwork> getHdMovieLogo() {
+    return this.hdMovieLogo;
+  }
+  
+  public void setHdMovieLogo(List<FanartTvArtwork> hdMovieLogo) {
+    this.hdMovieLogo = hdMovieLogo;
+  }
+  
+  public List<FanartTvArtwork> getMovieBanner() {
+    return this.movieBanner;
+  }
+  
+  public void setMovieBanner(List<FanartTvArtwork> movieBanner) {
+    this.movieBanner = movieBanner;
+  }
+  
+  public Map<FTArtworkType, List<FanartTvArtwork>> getArtwork() {
+    Map<FTArtworkType, List<FanartTvArtwork>> artwork = new EnumMap<FTArtworkType, List<FanartTvArtwork>>(FTArtworkType.class);
+    artwork.put(FTArtworkType.MOVIEART, this.movieArt);
+    artwork.put(FTArtworkType.MOVIEDISC, this.movieDisc);
+    artwork.put(FTArtworkType.MOVIELOGO, this.movieLogo);
+    artwork.put(FTArtworkType.MOVIEBACKGROUND, this.movieBackground);
+    artwork.put(FTArtworkType.MOVIETHUMB, this.movieThumb);
+    artwork.put(FTArtworkType.HDMOVIELOGO, this.hdMovieLogo);
+    artwork.put(FTArtworkType.MOVIEBANNER, this.movieBanner);
+    return artwork;
+  }
+  
+  @JsonAnySetter
+  public void handleUnknown(String key, Object value) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Unknown property: '").append(key);
+    sb.append("' value: '").append(value).append("'");
+    logger.warn(sb.toString());
+  }
+}
+
+write the needed code to perform the migration from log4j to slf4j library. Highlight the code changes needed to adapt the file please.
+
+To migrate the logging from `log4j` to `slf4j` in the `WrapperMovie` class, you need to:
+
+1. Replace the import statement for `log4j` with the one for `slf4j`.
+2. Change the logger instantiation from `log4j` to `slf4j`.
+
+Here are the specific changes needed in the `WrapperMovie` class:
+
+### Original Code
+
+```java
+package com.omertron.fanarttvapi.model;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.log4j.Logger;
+
+public class WrapperMovie {
+  private static final Logger logger = Logger.getLogger(WrapperMovie.class);
+
+  @JsonProperty("tmdb_id")
+  private int tmdbId;
+
+  @JsonProperty("imdb_id")
+  private String imdbId;
+
+  @JsonProperty("movieart")
+  private List<FanartTvArtwork> movieArt;
+
+  @JsonProperty("moviedisc")
+  private List<FanartTvArtwork> movieDisc;
+
+  @JsonProperty("movielogo")
+  private List<FanartTvArtwork> movieLogo;
+
+  @JsonProperty("moviebackground")
+  private List<FanartTvArtwork> movieBackground;
+
+  @JsonProperty("moviethumb")
+  private List<FanartTvArtwork> movieThumb;
+
+  @JsonProperty("hdmovielogo")
+  private List<FanartTvArtwork> hdMovieLogo;
+
+  @JsonProperty("moviebanner")
+  private List<FanartTvArtwork> movieBanner;
+
+  public String getImdbId() {
+    return this.imdbId;
+  }
+
+  public void setImdbId(String imdbId) {
+    this.imdbId = imdbId;
+  }
+
+  public int getTmdbId() {
+    return this.tmdbId;
+  }
+
+  public void setTmdbId(int tmdbId) {
+    this.tmdbId = tmdbId;
+  }
+
+  public void setMovieDisc(List<FanartTvArtwork> movieDisc) {
+    this.movieDisc = movieDisc;
+  }
+
+  public void setMovieLogo(List<FanartTvArtwork> movieLogo) {
+    this.movieLogo = movieLogo;
+  }
+
+  public void setMovieArt(List<FanartTvArtwork> movieArt) {
+    this.movieArt = movieArt;
+  }
+
+  public void setMovieBackground(List<FanartTvArtwork> movieBackground) {
+    this.movieBackground = movieBackground;
+  }
+
+  public void setMovieThumb(List<FanartTvArtwork> movieThumb) {
+    this.movieThumb = movieThumb;
+  }
+
+  public List<FanartTvArtwork> getHdMovieLogo() {
+    return this.hdMovieLogo;
+  }
+
+  public void setHdMovieLogo(List<FanartTvArtwork> hdMovieLogo) {
+    this.hdMovieLogo = hdMovieLogo;
+  }
+
+  public List<FanartTvArtwork> getMovieBanner() {
+    return this.movieBanner;
+  }
+
+  public void setMovieBanner(List<FanartTvArtwork> movieBanner) {
+    this.movieBanner = movieBanner;
+  }
+
+  public Map<FTArtworkType, List<FanartTvArtwork>> getArtwork() {
+    Map<FTArtworkType, List<FanartTvArtwork>> artwork = new EnumMap<FTArtworkType, List<FanartTvArtwork>>(FTArtworkType.class);
+    artwork.put(FTArtworkType.MOVIEART, this.movieArt);
+    artwork.put(FTArtworkType.MOVIEDISC, this.movieDisc);
+    artwork.put(FTArtworkType.MOVIELOGO, this.movieLogo);
+    artwork.put(FTArtworkType.MOVIEBACKGROUND, this.movieBackground);
+    artwork.put(FTArtworkType.MOVIETHUMB, this.movieThumb);
+    artwork.put(FTArtworkType.HDMOVIELOGO, this.hdMovieLogo);
+    artwork.put(FTArtworkType.MOVIEBANNER, this.movieBanner);
+    return artwork;
+  }
+
+  @JsonAnySetter
+  public void handleUnknown(String key, Object value) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Unknown property: '").append(key);
+    sb.append("' value: '").append(value).append("'");
+    logger.warn(sb.toString());
+  }
+}
+```
+
+### Updated Code with `slf4j`
+
+```java
+package com.omertron.fanarttvapi.model;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class WrapperMovie {
+  private static final Logger logger = LoggerFactory.getLogger(WrapperMovie.class);
+
+  @JsonProperty("tmdb_id")
+  private int tmdbId;
+
+  @JsonProperty("imdb_id")
+  private String imdbId;
+
+  @JsonProperty("movieart")
+  private List<FanartTvArtwork> movieArt;
+
+  @JsonProperty("moviedisc")
+  private List<FanartTvArtwork> movieDisc;
+
+  @JsonProperty("movielogo")
+  private List<FanartTvArtwork> movieLogo;
+
+  @JsonProperty("moviebackground")
+  private List<FanartTvArtwork> movieBackground;
+
+  @JsonProperty("moviethumb")
+  private List<FanartTvArtwork> movieThumb;
+
+  @JsonProperty("hdmovielogo")
+  private List<FanartTvArtwork> hdMovieLogo;
+
+  @JsonProperty("moviebanner")
+  private List<FanartTvArtwork> movieBanner;
+
+  public String getImdbId() {
+    return this.imdbId;
+  }
+
+  public void setImdbId(String imdbId) {
+    this.imdbId = imdbId;
+  }
+
+  public int getTmdbId() {
+    return this.tmdbId;
+  }
+
+  public void setTmdbId(int tmdbId) {
+    this.tmdbId = tmdbId;
+  }
+
+  public void setMovieDisc(List<FanartTvArtwork> movieDisc) {
+    this.movieDisc = movieDisc;
+  }
+
+  public void setMovieLogo(List<FanartTvArtwork> movieLogo) {
+    this.movieLogo = movieLogo;
+  }
+
+  public void setMovieArt(List<FanartTvArtwork> movieArt) {
+    this.movieArt = movieArt;
+  }
+
+  public void setMovieBackground(List<FanartTvArtwork> movieBackground) {
+    this.movieBackground = movieBackground;
+  }
+
+  public void setMovieThumb(List<FanartTvArtwork> movieThumb) {
+    this.movieThumb = movieThumb;
+  }
+
+  public List<FanartTvArtwork> getHdMovieLogo() {
+    return this.hdMovieLogo;
+  }
+
+  public void setHdMovieLogo(List<FanartTvArtwork> hdMovieLogo) {
+    this.hdMovieLogo = hdMovieLogo;
+  }
+
+  public List<FanartTvArtwork> getMovieBanner() {
+    return this.movieBanner;
+  }
+
+  public void setMovieBanner(List<FanartTvArtwork> movieBanner) {
+    this.movieBanner = movieBanner;
+  }
+
+  public Map<FTArtworkType, List<FanartTvArtwork>> getArtwork() {
+    Map<FTArtworkType, List<FanartTvArtwork>> artwork = new EnumMap<FTArtworkType, List<FanartTvArtwork>>(FTArtworkType.class);
+    artwork.put(FTArtworkType.MOVIEART, this.movieArt);
+    artwork.put(FTArtworkType.MOVIEDISC, this.movieDisc);
+    artwork.put(FTArtworkType.MOVIELOGO, this.movieLogo);
+    artwork.put(FTArtworkType.MOVIEBACKGROUND, this.movieBackground);
+    artwork.put(FTArtworkType.MOVIETHUMB, this.movieThumb);
+    artwork.put(FTArtworkType.HDMOVIELOGO, this.hdMovieLogo);
+    artwork.put(FTArtworkType.MOVIEBANNER, this.movieBanner);
+    return artwork;
+  }
+
+  @JsonAnySetter
+  public void handleUnknown(String key, Object value) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Unknown property: '").append(key);
+    sb.append("' value: '").append(value).append("'");
+    logger.warn(sb.toString());
+  }
+}
+```
+
+### Summary of Changes
+
+1. **Imports:**
+   - Replaced `import org.apache.log4j.Logger;` with `import org.slf4j.Logger;`
+   - Added `import org.slf4j.LoggerFactory;`
+
+2. **Logger Instantiation:**
+   - Changed `private static final Logger logger = Logger.getLogger(WrapperMovie.class);` to `private static final Logger logger = LoggerFactory.getLogger(WrapperMovie.class);`
+
+These changes are necessary to transition from using `log4j` to `slf4j` for logging purposes.

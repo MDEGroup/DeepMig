@@ -1,0 +1,137 @@
+You are a Java code assistant. Given this Java class: 
+
+package com.omertron.fanarttvapi.tools;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.apache.log4j.Category;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
+import org.apache.log4j.Priority;
+import org.apache.log4j.spi.LoggingEvent;
+
+public class FilteringLayout extends PatternLayout {
+  private static Pattern apiKeyPattern = Pattern.compile("DO_NOT_MATCH");
+  
+  public static void addApiKey(String apiKey) {
+    apiKeyPattern = Pattern.compile(apiKey);
+  }
+  
+  public String format(LoggingEvent event) {
+    if (event.getMessage() instanceof String) {
+      String message = event.getRenderedMessage();
+      Matcher matcher = apiKeyPattern.matcher(message);
+      if (matcher.find()) {
+        String maskedMessage = matcher.replaceAll("[APIKEY]");
+        Throwable throwable = (event.getThrowableInformation() != null) ? event.getThrowableInformation().getThrowable() : null;
+        LoggingEvent maskedEvent = new LoggingEvent(event.fqnOfCategoryClass, (Category)Logger.getLogger(event.getLoggerName()), event.timeStamp, (Priority)event.getLevel(), maskedMessage, throwable);
+        return super.format(maskedEvent);
+      } 
+    } 
+    return super.format(event);
+  }
+}
+
+
+write the needed code to perform the migration from log4j to slf4j library. Highlight the code changes needed to adapt the file please.
+
+To migrate the logging from `log4j` to `slf4j` in the `FilteringLayout` class, we need to replace `log4j` with `slf4j` and use `logback` for the custom layout.
+
+Here are the specific changes needed in the `FilteringLayout` class:
+
+### Original Code
+
+```java
+package com.omertron.fanarttvapi.tools;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.apache.log4j.Category;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
+import org.apache.log4j.Priority;
+import org.apache.log4j.spi.LoggingEvent;
+
+public class FilteringLayout extends PatternLayout {
+  private static Pattern apiKeyPattern = Pattern.compile("DO_NOT_MATCH");
+  
+  public static void addApiKey(String apiKey) {
+    apiKeyPattern = Pattern.compile(apiKey);
+  }
+  
+  public String format(LoggingEvent event) {
+    if (event.getMessage() instanceof String) {
+      String message = event.getRenderedMessage();
+      Matcher matcher = apiKeyPattern.matcher(message);
+      if (matcher.find()) {
+        String maskedMessage = matcher.replaceAll("[APIKEY]");
+        Throwable throwable = (event.getThrowableInformation() != null) ? event.getThrowableInformation().getThrowable() : null;
+        LoggingEvent maskedEvent = new LoggingEvent(event.fqnOfCategoryClass, (Category)Logger.getLogger(event.getLoggerName()), event.timeStamp, (Priority)event.getLevel(), maskedMessage, throwable);
+        return super.format(maskedEvent);
+      } 
+    } 
+    return super.format(event);
+  }
+}
+```
+
+### Updated Code with `slf4j` and `logback`
+
+```java
+package com.omertron.fanarttvapi.tools;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.PatternLayout;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.spi.LoggingEvent;
+import ch.qos.logback.core.LayoutBase;
+import org.slf4j.LoggerFactory;
+
+public class FilteringLayout extends LayoutBase<ILoggingEvent> {
+  private static Pattern apiKeyPattern = Pattern.compile("DO_NOT_MATCH");
+  private final PatternLayout patternLayout = new PatternLayout();
+
+  public FilteringLayout() {
+    patternLayout.setPattern("%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n");
+    patternLayout.start();
+  }
+  
+  public static void addApiKey(String apiKey) {
+    apiKeyPattern = Pattern.compile(apiKey);
+  }
+  
+  @Override
+  public String doLayout(ILoggingEvent event) {
+    if (event.getMessage() instanceof String) {
+      String message = event.getFormattedMessage();
+      Matcher matcher = apiKeyPattern.matcher(message);
+      if (matcher.find()) {
+        String maskedMessage = matcher.replaceAll("[APIKEY]");
+        ILoggingEvent maskedEvent = new LoggingEvent(event.getLoggerName(), (Logger)LoggerFactory.getLogger(event.getLoggerName()), event.getLevel(), maskedMessage, event.getThrowableProxy().getThrowable(), event.getArgumentArray());
+        return patternLayout.doLayout(maskedEvent);
+      }
+    }
+    return patternLayout.doLayout(event);
+  }
+}
+```
+
+### Summary of Changes
+
+1. **Imports:**
+   - Replaced `import org.apache.log4j.*` with `import ch.qos.logback.classic.*` and `import org.slf4j.LoggerFactory;`
+
+2. **Logger Instantiation:**
+   - Removed `Logger` instantiation since `logback` directly handles the logging events.
+
+3. **PatternLayout and LoggingEvent:**
+   - Used `ch.qos.logback.classic.PatternLayout` instead of `org.apache.log4j.PatternLayout`.
+   - Used `ILoggingEvent` and `LoggingEvent` from `ch.qos.logback.classic.spi` instead of `org.apache.log4j.spi.LoggingEvent`.
+
+4. **Method Updates:**
+   - Updated the `format` method to `doLayout`.
+   - Created a new `LoggingEvent` using `logback` classes to replace the masked message in the event.
+
+These changes will ensure the `FilteringLayout` class uses `slf4j` with `logback` for logging while maintaining the functionality of masking API keys in log messages.

@@ -1,0 +1,137 @@
+You are a Java code assistant. Given this Java class: 
+
+package be.objectify.led;
+
+import be.objectify.led.util.ContractUtils;
+import be.objectify.led.util.StringUtils;
+import java.util.Properties;
+import org.apache.log4j.Logger;
+
+public class DefaultPropertyContext implements PropertyContext {
+  private static final Logger LOGGER = Logger.getLogger(DefaultPropertyContext.class);
+  
+  private final Properties properties = new Properties();
+  
+  public DefaultPropertyContext(Properties... properties) {
+    ContractUtils.nonNull((Object[])properties, "properties");
+    for (Properties propertiesInstance : properties)
+      this.properties.putAll(propertiesInstance); 
+  }
+  
+  public String getValue(String propertyName) {
+    String value = null;
+    if (this.properties.containsKey(propertyName))
+      value = this.properties.getProperty(propertyName); 
+    String property = System.getProperty(propertyName);
+    if (!StringUtils.isEmpty(property))
+      value = property; 
+    if (value != null && LOGGER.isDebugEnabled())
+      LOGGER.debug(String.format("Found value [%s] for property [%s]", new Object[] { value, propertyName })); 
+    return value;
+  }
+}
+
+
+write the needed code to perform the migration from log4j to slf4j library. Highlight the code changes needed to adapt the file please.
+
+To migrate from log4j to slf4j in the `DefaultPropertyContext` class, you need to replace the log4j `Logger` with the slf4j `Logger`. Here are the changes needed to adapt the provided class:
+
+### Original Code with log4j
+```java
+package be.objectify.led;
+
+import be.objectify.led.util.ContractUtils;
+import be.objectify.led.util.StringUtils;
+import java.util.Properties;
+import org.apache.log4j.Logger;
+
+public class DefaultPropertyContext implements PropertyContext {
+  private static final Logger LOGGER = Logger.getLogger(DefaultPropertyContext.class);
+  
+  private final Properties properties = new Properties();
+  
+  public DefaultPropertyContext(Properties... properties) {
+    ContractUtils.nonNull((Object[])properties, "properties");
+    for (Properties propertiesInstance : properties)
+      this.properties.putAll(propertiesInstance); 
+  }
+  
+  public String getValue(String propertyName) {
+    String value = null;
+    if (this.properties.containsKey(propertyName))
+      value = this.properties.getProperty(propertyName); 
+    String property = System.getProperty(propertyName);
+    if (!StringUtils.isEmpty(property))
+      value = property; 
+    if (value != null && LOGGER.isDebugEnabled())
+      LOGGER.debug(String.format("Found value [%s] for property [%s]", new Object[] { value, propertyName })); 
+    return value;
+  }
+}
+```
+
+### Modified Code with slf4j
+```java
+package be.objectify.led;
+
+import be.objectify.led.util.ContractUtils;
+import be.objectify.led.util.StringUtils;
+import java.util.Properties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class DefaultPropertyContext implements PropertyContext {
+  private static final Logger LOGGER = LoggerFactory.getLogger(DefaultPropertyContext.class);
+  
+  private final Properties properties = new Properties();
+  
+  public DefaultPropertyContext(Properties... properties) {
+    ContractUtils.nonNull((Object[])properties, "properties");
+    for (Properties propertiesInstance : properties)
+      this.properties.putAll(propertiesInstance); 
+  }
+  
+  public String getValue(String propertyName) {
+    String value = null;
+    if (this.properties.containsKey(propertyName))
+      value = this.properties.getProperty(propertyName); 
+    String property = System.getProperty(propertyName);
+    if (!StringUtils.isEmpty(property))
+      value = property; 
+    if (value != null && LOGGER.isDebugEnabled())
+      LOGGER.debug(String.format("Found value [%s] for property [%s]", value, propertyName)); 
+    return value;
+  }
+}
+```
+
+### Highlighted Changes
+1. Import changes:
+    ```java
+    import org.apache.log4j.Logger;
+    ```
+    is replaced by:
+    ```java
+    import org.slf4j.Logger;
+    import org.slf4j.LoggerFactory;
+    ```
+
+2. Logger initialization:
+    ```java
+    private static final Logger LOGGER = Logger.getLogger(DefaultPropertyContext.class);
+    ```
+    is replaced by:
+    ```java
+    private static final Logger LOGGER = LoggerFactory.getLogger(DefaultPropertyContext.class);
+    ```
+
+3. String.format argument fix:
+    ```java
+    LOGGER.debug(String.format("Found value [%s] for property [%s]", new Object[] { value, propertyName }));
+    ```
+    is replaced by:
+    ```java
+    LOGGER.debug(String.format("Found value [%s] for property [%s]", value, propertyName));
+    ```
+
+These changes ensure that the logging mechanism is switched from log4j to slf4j, allowing for a more flexible and widely compatible logging framework.

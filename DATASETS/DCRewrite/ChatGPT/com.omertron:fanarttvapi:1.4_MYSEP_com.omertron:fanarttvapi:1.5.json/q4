@@ -1,0 +1,236 @@
+You are a Java code assistant. Given this Java class: 
+
+package com.omertron.fanarttvapi.model;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.log4j.Logger;
+
+public class WrapperMusic {
+  private static final Logger logger = Logger.getLogger(WrapperMusic.class);
+  
+  @JsonProperty("mbid_id")
+  private String mbidId;
+  
+  @JsonProperty("albumcover")
+  private List<FanartTvArtwork> albumCover;
+  
+  @JsonProperty("artistbackground")
+  private List<FanartTvArtwork> artistBackground;
+  
+  @JsonProperty("cdart")
+  private List<FanartTvArtwork> cdArt;
+  
+  @JsonProperty("musiclogo")
+  private List<FanartTvArtwork> musicLogo;
+  
+  public String getMbidId() {
+    return this.mbidId;
+  }
+  
+  public void setMbidId(String mbidId) {
+    this.mbidId = mbidId;
+  }
+  
+  public void setAlbumCover(List<FanartTvArtwork> albumCover) {
+    this.albumCover = albumCover;
+  }
+  
+  public void setArtistBackground(List<FanartTvArtwork> artistBackground) {
+    this.artistBackground = artistBackground;
+  }
+  
+  public void setCdArt(List<FanartTvArtwork> cdArt) {
+    this.cdArt = cdArt;
+  }
+  
+  public void setMusicLogo(List<FanartTvArtwork> musicLogo) {
+    this.musicLogo = musicLogo;
+  }
+  
+  public Map<FTArtworkType, List<FanartTvArtwork>> getArtwork() {
+    Map<FTArtworkType, List<FanartTvArtwork>> artwork = new EnumMap<FTArtworkType, List<FanartTvArtwork>>(FTArtworkType.class);
+    artwork.put(FTArtworkType.ALBUMCOVER, this.albumCover);
+    artwork.put(FTArtworkType.ARTISTBACKGROUND, this.artistBackground);
+    artwork.put(FTArtworkType.CDART, this.cdArt);
+    artwork.put(FTArtworkType.MUSICLOGO, this.musicLogo);
+    return artwork;
+  }
+  
+  @JsonAnySetter
+  public void handleUnknown(String key, Object value) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Unknown property: '").append(key);
+    sb.append("' value: '").append(value).append("'");
+    logger.warn(sb.toString());
+  }
+}
+
+
+write the needed code to perform the migration from log4j to slf4j library. Highlight the code changes needed to adapt the file please.
+
+To migrate the logging from `log4j` to `slf4j` in the `WrapperMusic` class, you need to:
+
+1. Replace the import statement for `log4j` with the one for `slf4j`.
+2. Change the logger instantiation from `log4j` to `slf4j`.
+
+Here are the specific changes needed in the `WrapperMusic` class:
+
+### Original Code
+
+```java
+package com.omertron.fanarttvapi.model;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import org.apache.log4j.Logger;
+
+public class WrapperMusic {
+  private static final Logger logger = Logger.getLogger(WrapperMusic.class);
+  
+  @JsonProperty("mbid_id")
+  private String mbidId;
+  
+  @JsonProperty("albumcover")
+  private List<FanartTvArtwork> albumCover;
+  
+  @JsonProperty("artistbackground")
+  private List<FanartTvArtwork> artistBackground;
+  
+  @JsonProperty("cdart")
+  private List<FanartTvArtwork> cdArt;
+  
+  @JsonProperty("musiclogo")
+  private List<FanartTvArtwork> musicLogo;
+  
+  public String getMbidId() {
+    return this.mbidId;
+  }
+  
+  public void setMbidId(String mbidId) {
+    this.mbidId = mbidId;
+  }
+  
+  public void setAlbumCover(List<FanartTvArtwork> albumCover) {
+    this.albumCover = albumCover;
+  }
+  
+  public void setArtistBackground(List<FanartTvArtwork> artistBackground) {
+    this.artistBackground = artistBackground;
+  }
+  
+  public void setCdArt(List<FanartTvArtwork> cdArt) {
+    this.cdArt = cdArt;
+  }
+  
+  public void setMusicLogo(List<FanartTvArtwork> musicLogo) {
+    this.musicLogo = musicLogo;
+  }
+  
+  public Map<FTArtworkType, List<FanartTvArtwork>> getArtwork() {
+    Map<FTArtworkType, List<FanartTvArtwork>> artwork = new EnumMap<FTArtworkType, List<FanartTvArtwork>>(FTArtworkType.class);
+    artwork.put(FTArtworkType.ALBUMCOVER, this.albumCover);
+    artwork.put(FTArtworkType.ARTISTBACKGROUND, this.artistBackground);
+    artwork.put(FTArtworkType.CDART, this.cdArt);
+    artwork.put(FTArtworkType.MUSICLOGO, this.musicLogo);
+    return artwork;
+  }
+  
+  @JsonAnySetter
+  public void handleUnknown(String key, Object value) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Unknown property: '").append(key);
+    sb.append("' value: '").append(value).append("'");
+    logger.warn(sb.toString());
+  }
+}
+```
+
+### Updated Code with `slf4j`
+
+```java
+package com.omertron.fanarttvapi.model;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class WrapperMusic {
+  private static final Logger logger = LoggerFactory.getLogger(WrapperMusic.class);
+  
+  @JsonProperty("mbid_id")
+  private String mbidId;
+  
+  @JsonProperty("albumcover")
+  private List<FanartTvArtwork> albumCover;
+  
+  @JsonProperty("artistbackground")
+  private List<FanartTvArtwork> artistBackground;
+  
+  @JsonProperty("cdart")
+  private List<FanartTvArtwork> cdArt;
+  
+  @JsonProperty("musiclogo")
+  private List<FanartTvArtwork> musicLogo;
+  
+  public String getMbidId() {
+    return this.mbidId;
+  }
+  
+  public void setMbidId(String mbidId) {
+    this.mbidId = mbidId;
+  }
+  
+  public void setAlbumCover(List<FanartTvArtwork> albumCover) {
+    this.albumCover = albumCover;
+  }
+  
+  public void setArtistBackground(List<FanartTvArtwork> artistBackground) {
+    this.artistBackground = artistBackground;
+  }
+  
+  public void setCdArt(List<FanartTvArtwork> cdArt) {
+    this.cdArt = cdArt;
+  }
+  
+  public void setMusicLogo(List<FanartTvArtwork> musicLogo) {
+    this.musicLogo = musicLogo;
+  }
+  
+  public Map<FTArtworkType, List<FanartTvArtwork>> getArtwork() {
+    Map<FTArtworkType, List<FanartTvArtwork>> artwork = new EnumMap<>(FTArtworkType.class);
+    artwork.put(FTArtworkType.ALBUMCOVER, this.albumCover);
+    artwork.put(FTArtworkType.ARTISTBACKGROUND, this.artistBackground);
+    artwork.put(FTArtworkType.CDART, this.cdArt);
+    artwork.put(FTArtworkType.MUSICLOGO, this.musicLogo);
+    return artwork;
+  }
+  
+  @JsonAnySetter
+  public void handleUnknown(String key, Object value) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Unknown property: '").append(key);
+    sb.append("' value: '").append(value).append("'");
+    logger.warn(sb.toString());
+  }
+}
+```
+
+### Summary of Changes
+
+1. **Imports:**
+   - Replaced `import org.apache.log4j.Logger;` with `import org.slf4j.Logger;`
+   - Added `import org.slf4j.LoggerFactory;`
+
+2. **Logger Instantiation:**
+   - Changed `private static final Logger logger = Logger.getLogger(WrapperMusic.class);` to `private static final Logger logger = LoggerFactory.getLogger(WrapperMusic.class);`

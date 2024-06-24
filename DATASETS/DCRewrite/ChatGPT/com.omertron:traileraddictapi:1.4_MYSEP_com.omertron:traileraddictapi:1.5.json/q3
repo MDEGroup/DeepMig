@@ -1,0 +1,317 @@
+You are a Java code assistant. Given this Java class: 
+
+package com.omertron.traileraddictapi.tools;
+
+import com.omertron.traileraddictapi.TrailerAddictException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import org.apache.log4j.Logger;
+
+public final class ApiBuilder {
+  private static final Logger LOGGER = Logger.getLogger(ApiBuilder.class);
+  
+  private static final String API_BASE = "http://api.traileraddict.com/";
+  
+  private static final String DELIMITER_FIRST = "?";
+  
+  private static final String DELIMITER_SUBSEQUENT = "&";
+  
+  private static final String PARAMETER_WIDTH = "width=";
+  
+  private static final String PARAMETER_COUNT = "count=";
+  
+  private static final String PARAMETER_FEATURED = "featured=";
+  
+  private static final String PARAMETER_FILM = "film=";
+  
+  private static final String PARAMETER_ACTOR = "actor=";
+  
+  private static final String PARAMETER_IMDB = "imdb=";
+  
+  private static final String FEATURED_YES = "yes";
+  
+  private static final String FEATURED_NO = "no";
+  
+  private static final int DEFAULT_INT = -1;
+  
+  private static final String DEFAULT_FEATURED = "yes";
+  
+  private static final int COUNT_MAX = 8;
+  
+  private ApiBuilder() {
+    throw new UnsupportedOperationException("Class can not be initialised!");
+  }
+  
+  private static URL buildUrl(String method, String value, int count, int width) throws TrailerAddictException {
+    StringBuilder searchUrl = new StringBuilder("http://api.traileraddict.com/");
+    searchUrl.append("?").append(method).append(value);
+    if (width != -1) {
+      searchUrl.append("&");
+      searchUrl.append("width=");
+      searchUrl.append(width);
+    } 
+    int urlCount = validateCount(count);
+    if (urlCount != -1) {
+      searchUrl.append("&");
+      searchUrl.append("count=");
+      searchUrl.append(urlCount);
+    } 
+    try {
+      LOGGER.trace("URL: " + searchUrl.toString());
+      return new URL(searchUrl.toString());
+    } catch (MalformedURLException ex) {
+      LOGGER.warn("Failed to create URL " + searchUrl.toString() + " - " + ex.toString());
+      throw new TrailerAddictException(TrailerAddictException.TrailerAddictExceptionType.INVALID_URL, searchUrl.toString(), ex);
+    } 
+  }
+  
+  private static int validateCount(int count) {
+    if (count == -1)
+      return count; 
+    if (count > 8)
+      return 8; 
+    if (count < -1)
+      return -1; 
+    return count;
+  }
+  
+  public static URL getFeaturedUrl(String featured, int count, int width) throws TrailerAddictException {
+    if (featured.equalsIgnoreCase("yes") || featured.equalsIgnoreCase("no"))
+      return buildUrl("featured=", featured, count, width); 
+    return buildUrl("featured=", "yes", count, width);
+  }
+  
+  public static URL getFeaturedUrl(String featured, int count) throws TrailerAddictException {
+    return getFeaturedUrl(featured, count, -1);
+  }
+  
+  public static URL getFeaturedUrl(String featured) throws TrailerAddictException {
+    return getFeaturedUrl(featured, -1, -1);
+  }
+  
+  public static URL getFilmUrl(String filmId, int count, int width) throws TrailerAddictException {
+    return buildUrl("film=", filmId, count, width);
+  }
+  
+  public static URL getFilmUrl(String filmId, int count) throws TrailerAddictException {
+    return getFilmUrl(filmId, count, -1);
+  }
+  
+  public static URL getFilmUrl(String filmId) throws TrailerAddictException {
+    return getFilmUrl(filmId, -1, -1);
+  }
+  
+  public static URL getImdbUrl(String imdbId, int count, int width) throws TrailerAddictException {
+    String validatedImdb;
+    if (imdbId.startsWith("tt")) {
+      validatedImdb = imdbId.replace("tt", "");
+    } else {
+      validatedImdb = imdbId;
+    } 
+    return buildUrl("imdb=", validatedImdb, count, width);
+  }
+  
+  public static URL getImdbUrl(String imdbId, int count) throws TrailerAddictException {
+    return getImdbUrl(imdbId, count, -1);
+  }
+  
+  public static URL getImdbUrl(String imdbId) throws TrailerAddictException {
+    return getImdbUrl(imdbId, -1, -1);
+  }
+  
+  public static URL getActorUrl(String actorId, int count, int width) throws TrailerAddictException {
+    return buildUrl("actor=", actorId, count, width);
+  }
+  
+  public static URL getActorUrl(String actorId, int count) throws TrailerAddictException {
+    return getActorUrl(actorId, count, -1);
+  }
+  
+  public static URL getActorUrl(String actorId) throws TrailerAddictException {
+    return getActorUrl(actorId, -1, -1);
+  }
+  
+  public static URL getSimpleUrl(String searchUrl) throws TrailerAddictException {
+    try {
+      LOGGER.trace("URL: " + searchUrl);
+      return new URL(searchUrl.replace("http://www.", "http://simpleapi."));
+    } catch (MalformedURLException ex) {
+      LOGGER.warn("Failed to create URL " + searchUrl + " - " + ex.toString());
+      throw new TrailerAddictException(TrailerAddictException.TrailerAddictExceptionType.INVALID_URL, searchUrl, ex);
+    } 
+  }
+}
+
+write the needed code to perform the migration from log4j to slf4j library. Highlight the code changes needed to adapt the file please.
+
+To migrate from Log4j to SLF4J in the provided Java class, you need to follow these steps:
+
+1. Replace the Log4j import statement with the SLF4J import statement.
+2. Change the logger initialization.
+3. Ensure that logging statements use the SLF4J logger.
+
+Here are the changes highlighted in the code:
+
+```java
+package com.omertron.traileraddictapi.tools;
+
+import com.omertron.traileraddictapi.TrailerAddictException;
+import java.net.MalformedURLException;
+import java.net.URL;
+// Change the import statement for the logger
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public final class ApiBuilder {
+  // Change logger initialization
+  // private static final Logger LOGGER = Logger.getLogger(ApiBuilder.class);
+  private static final Logger LOGGER = LoggerFactory.getLogger(ApiBuilder.class);
+  
+  private static final String API_BASE = "http://api.traileraddict.com/";
+  
+  private static final String DELIMITER_FIRST = "?";
+  
+  private static final String DELIMITER_SUBSEQUENT = "&";
+  
+  private static final String PARAMETER_WIDTH = "width=";
+  
+  private static final String PARAMETER_COUNT = "count=";
+  
+  private static final String PARAMETER_FEATURED = "featured=";
+  
+  private static final String PARAMETER_FILM = "film=";
+  
+  private static final String PARAMETER_ACTOR = "actor=";
+  
+  private static final String PARAMETER_IMDB = "imdb=";
+  
+  private static final String FEATURED_YES = "yes";
+  
+  private static final String FEATURED_NO = "no";
+  
+  private static final int DEFAULT_INT = -1;
+  
+  private static final String DEFAULT_FEATURED = "yes";
+  
+  private static final int COUNT_MAX = 8;
+  
+  private ApiBuilder() {
+    throw new UnsupportedOperationException("Class can not be initialised!");
+  }
+  
+  private static URL buildUrl(String method, String value, int count, int width) throws TrailerAddictException {
+    StringBuilder searchUrl = new StringBuilder("http://api.traileraddict.com/");
+    searchUrl.append("?").append(method).append(value);
+    if (width != -1) {
+      searchUrl.append("&");
+      searchUrl.append("width=");
+      searchUrl.append(width);
+    } 
+    int urlCount = validateCount(count);
+    if (urlCount != -1) {
+      searchUrl.append("&");
+      searchUrl.append("count=");
+      searchUrl.append(urlCount);
+    } 
+    try {
+      // Change logging statements
+      // LOGGER.trace("URL: " + searchUrl.toString());
+      LOGGER.trace("URL: {}", searchUrl.toString());
+      return new URL(searchUrl.toString());
+    } catch (MalformedURLException ex) {
+      // Change logging statements
+      // LOGGER.warn("Failed to create URL " + searchUrl.toString() + " - " + ex.toString());
+      LOGGER.warn("Failed to create URL {} - {}", searchUrl.toString(), ex.toString());
+      throw new TrailerAddictException(TrailerAddictException.TrailerAddictExceptionType.INVALID_URL, searchUrl.toString(), ex);
+    } 
+  }
+  
+  private static int validateCount(int count) {
+    if (count == -1)
+      return count; 
+    if (count > 8)
+      return 8; 
+    if (count < -1)
+      return -1; 
+    return count;
+  }
+  
+  public static URL getFeaturedUrl(String featured, int count, int width) throws TrailerAddictException {
+    if (featured.equalsIgnoreCase("yes") || featured.equalsIgnoreCase("no"))
+      return buildUrl("featured=", featured, count, width); 
+    return buildUrl("featured=", "yes", count, width);
+  }
+  
+  public static URL getFeaturedUrl(String featured, int count) throws TrailerAddictException {
+    return getFeaturedUrl(featured, count, -1);
+  }
+  
+  public static URL getFeaturedUrl(String featured) throws TrailerAddictException {
+    return getFeaturedUrl(featured, -1, -1);
+  }
+  
+  public static URL getFilmUrl(String filmId, int count, int width) throws TrailerAddictException {
+    return buildUrl("film=", filmId, count, width);
+  }
+  
+  public static URL getFilmUrl(String filmId, int count) throws TrailerAddictException {
+    return getFilmUrl(filmId, count, -1);
+  }
+  
+  public static URL getFilmUrl(String filmId) throws TrailerAddictException {
+    return getFilmUrl(filmId, -1, -1);
+  }
+  
+  public static URL getImdbUrl(String imdbId, int count, int width) throws TrailerAddictException {
+    String validatedImdb;
+    if (imdbId.startsWith("tt")) {
+      validatedImdb = imdbId.replace("tt", "");
+    } else {
+      validatedImdb = imdbId;
+    } 
+    return buildUrl("imdb=", validatedImdb, count, width);
+  }
+  
+  public static URL getImdbUrl(String imdbId, int count) throws TrailerAddictException {
+    return getImdbUrl(imdbId, count, -1);
+  }
+  
+  public static URL getImdbUrl(String imdbId) throws TrailerAddictException {
+    return getImdbUrl(imdbId, -1, -1);
+  }
+  
+  public static URL getActorUrl(String actorId, int count, int width) throws TrailerAddictException {
+    return buildUrl("actor=", actorId, count, width);
+  }
+  
+  public static URL getActorUrl(String actorId, int count) throws TrailerAddictException {
+    return getActorUrl(actorId, count, -1);
+  }
+  
+  public static URL getActorUrl(String actorId) throws TrailerAddictException {
+    return getActorUrl(actorId, -1, -1);
+  }
+  
+  public static URL getSimpleUrl(String searchUrl) throws TrailerAddictException {
+    try {
+      // Change logging statements
+      // LOGGER.trace("URL: " + searchUrl);
+      LOGGER.trace("URL: {}", searchUrl);
+      return new URL(searchUrl.replace("http://www.", "http://simpleapi."));
+    } catch (MalformedURLException ex) {
+      // Change logging statements
+      // LOGGER.warn("Failed to create URL " + searchUrl + " - " + ex.toString());
+      LOGGER.warn("Failed to create URL {} - {}", searchUrl, ex.toString());
+      throw new TrailerAddictException(TrailerAddictException.TrailerAddictExceptionType.INVALID_URL, searchUrl, ex);
+    } 
+  }
+}
+```
+
+### Summary of Changes:
+1. **Logger Import**: Changed from Log4j to SLF4J (`import org.slf4j.Logger;` and `import org.slf4j.LoggerFactory;`).
+2. **Logger Initialization**: Updated the logger initialization (`LoggerFactory.getLogger(ApiBuilder.class)`).
+3. **Logging Statements**: Updated the logging statements to use SLF4J's parameterized messages.
+
+These modifications should migrate the logging from Log4j to SLF4J successfully.
