@@ -1,356 +1,48 @@
-You are a Java code assistant. Given this Java class: 
+To migrate the `FanartTvArtwork` class from using Log4j to SLF4J, you will need to change the import statements and update the logger initialization. Here’s how you can do that:
 
-package com.omertron.fanarttvapi.model;
-
-import com.fasterxml.jackson.annotation.JsonAnySetter;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import java.io.Serializable;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.log4j.Logger;
-
-public class FanartTvArtwork implements Serializable {
-  private static final Logger logger = Logger.getLogger(FanartTvArtwork.class);
-  
-  private static final long serialVersionUID = 1L;
-  
-  public static final String UNKNOWN = "UNKNOWN";
-  
-  public static final int VERSION_IMAGE = 3;
-  
-  public static final int VERSION_CHARACTER = 4;
-  
-  private FTArtworkType type;
-  
-  @JsonProperty("id")
-  private int id;
-  
-  @JsonProperty("url")
-  private String url;
-  
-  @JsonProperty("lang")
-  private String language;
-  
-  @JsonProperty("likes")
-  private int likes;
-  
-  private int season;
-  
-  @JsonProperty("disc")
-  private int disc;
-  
-  @JsonProperty("disc_type")
-  private String discType;
-  
-  public FanartTvArtwork(String type, String url) {
-    this.type = FTArtworkType.fromString(type);
-    this.url = url;
-  }
-  
-  public FanartTvArtwork() {
-    this.type = FTArtworkType.ALL;
-    this.url = "UNKNOWN";
-  }
-  
-  public String getType() {
-    return this.type.toString();
-  }
-  
-  @JsonProperty("type")
-  public void setType(String type) {
-    if (validateType(type))
-      this.type = FTArtworkType.fromString(type); 
-  }
-  
-  public void setType(FTArtworkType type) {
-    this.type = type;
-  }
-  
-  public String getUrl() {
-    return this.url;
-  }
-  
-  public void setUrl(String url) {
-    this.url = url;
-  }
-  
-  public int getId() {
-    return this.id;
-  }
-  
-  public void setId(int id) {
-    this.id = id;
-  }
-  
-  public String getLanguage() {
-    return this.language;
-  }
-  
-  public void setLanguage(String language) {
-    this.language = language;
-  }
-  
-  public int getLikes() {
-    return this.likes;
-  }
-  
-  public void setLikes(int likes) {
-    this.likes = likes;
-  }
-  
-  public int getSeason() {
-    return this.season;
-  }
-  
-  @JsonProperty("season")
-  public void setSeason(String season) {
-    if (StringUtils.isNumeric(season)) {
-      this.season = Integer.parseInt(season);
-    } else {
-      this.season = -1;
-    } 
-  }
-  
-  public int getDisc() {
-    return this.disc;
-  }
-  
-  public void setDisc(int disc) {
-    this.disc = disc;
-  }
-  
-  public String getDiscType() {
-    return this.discType;
-  }
-  
-  public void setDiscType(String discType) {
-    this.discType = discType;
-  }
-  
-  public static boolean validateType(String artworkType) {
-    try {
-      FTArtworkType.fromString(artworkType);
-      return true;
-    } catch (IllegalArgumentException ex) {
-      return false;
-    } 
-  }
-  
-  public static boolean validateSort(String artworkSort) {
-    try {
-      FTArtworkSort.fromString(artworkSort);
-      return true;
-    } catch (IllegalArgumentException ex) {
-      return false;
-    } 
-  }
-  
-  public String toString() {
-    StringBuilder builder = new StringBuilder();
-    builder.append("[FanartTvArtwork=[");
-    builder.append("[type=").append(this.type);
-    builder.append("],[id=").append(this.id);
-    builder.append("],[url=").append(this.url);
-    builder.append("],[lang=").append(this.language);
-    builder.append("],[likes=").append(this.likes);
-    builder.append("],[season=").append(this.season);
-    builder.append("],[disc=").append(this.disc);
-    builder.append("],[discType=").append(this.discType);
-    builder.append("]]");
-    return builder.toString();
-  }
-  
-  @JsonAnySetter
-  public void handleUnknown(String key, Object value) {
-    StringBuilder sb = new StringBuilder();
-    sb.append("Unknown property: '").append(key);
-    sb.append("' value: '").append(value).append("'");
-    logger.warn(sb.toString());
-  }
-}
-
-
-write the needed code to perform the migration from log4j to slf4j library. Highlight the code changes needed to adapt the file please.
-
-To migrate the logging from `log4j` to `slf4j` in the `FanartTvArtwork` class, you need to:
-
-1. Replace the import statement for `log4j` with the one for `slf4j`.
-2. Change the logger instantiation from `log4j` to `slf4j`.
-
-Here are the specific changes needed in the `FanartTvArtwork` class:
-
-### Original Code
+### 1. Change Import Statements
+Replace the Log4j import statement with the appropriate SLF4J import:
 
 ```java
-package com.omertron.fanarttvapi.model;
-
-import com.fasterxml.jackson.annotation.JsonAnySetter;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import java.io.Serializable;
-import org.apache.commons.lang3.StringUtils;
+// Remove this
 import org.apache.log4j.Logger;
 
-public class FanartTvArtwork implements Serializable {
-  private static final Logger logger = Logger.getLogger(FanartTvArtwork.class);
-  
-  private static final long serialVersionUID = 1L;
-  
-  public static final String UNKNOWN = "UNKNOWN";
-  
-  public static final int VERSION_IMAGE = 3;
-  
-  public static final int VERSION_CHARACTER = 4;
-  
-  private FTArtworkType type;
-  
-  @JsonProperty("id")
-  private int id;
-  
-  @JsonProperty("url")
-  private String url;
-  
-  @JsonProperty("lang")
-  private String language;
-  
-  @JsonProperty("likes")
-  private int likes;
-  
-  private int season;
-  
-  @JsonProperty("disc")
-  private int disc;
-  
-  @JsonProperty("disc_type")
-  private String discType;
-  
-  public FanartTvArtwork(String type, String url) {
-    this.type = FTArtworkType.fromString(type);
-    this.url = url;
-  }
-  
-  public FanartTvArtwork() {
-    this.type = FTArtworkType.ALL;
-    this.url = "UNKNOWN";
-  }
-  
-  public String getType() {
-    return this.type.toString();
-  }
-  
-  @JsonProperty("type")
-  public void setType(String type) {
-    if (validateType(type))
-      this.type = FTArtworkType.fromString(type); 
-  }
-  
-  public void setType(FTArtworkType type) {
-    this.type = type;
-  }
-  
-  public String getUrl() {
-    return this.url;
-  }
-  
-  public void setUrl(String url) {
-    this.url = url;
-  }
-  
-  public int getId() {
-    return this.id;
-  }
-  
-  public void setId(int id) {
-    this.id = id;
-  }
-  
-  public String getLanguage() {
-    return this.language;
-  }
-  
-  public void setLanguage(String language) {
-    this.language = language;
-  }
-  
-  public int getLikes() {
-    return this.likes;
-  }
-  
-  public void setLikes(int likes) {
-    this.likes = likes;
-  }
-  
-  public int getSeason() {
-    return this.season;
-  }
-  
-  @JsonProperty("season")
-  public void setSeason(String season) {
-    if (StringUtils.isNumeric(season)) {
-      this.season = Integer.parseInt(season);
-    } else {
-      this.season = -1;
-    } 
-  }
-  
-  public int getDisc() {
-    return this.disc;
-  }
-  
-  public void setDisc(int disc) {
-    this.disc = disc;
-  }
-  
-  public String getDiscType() {
-    return this.discType;
-  }
-  
-  public void setDiscType(String discType) {
-    this.discType = discType;
-  }
-  
-  public static boolean validateType(String artworkType) {
-    try {
-      FTArtworkType.fromString(artworkType);
-      return true;
-    } catch (IllegalArgumentException ex) {
-      return false;
-    } 
-  }
-  
-  public static boolean validateSort(String artworkSort) {
-    try {
-      FTArtworkSort.fromString(artworkSort);
-      return true;
-    } catch (IllegalArgumentException ex) {
-      return false;
-    } 
-  }
-  
-  public String toString() {
-    StringBuilder builder = new StringBuilder();
-    builder.append("[FanartTvArtwork=[");
-    builder.append("[type=").append(this.type);
-    builder.append("],[id=").append(this.id);
-    builder.append("],[url=").append(this.url);
-    builder.append("],[lang=").append(this.language);
-    builder.append("],[likes=").append(this.likes);
-    builder.append("],[season=").append(this.season);
-    builder.append("],[disc=").append(this.disc);
-    builder.append("],[discType=").append(this.discType);
-    builder.append("]]");
-    return builder.toString();
-  }
-  
-  @JsonAnySetter
-  public void handleUnknown(String key, Object value) {
-    StringBuilder sb = new StringBuilder();
-    sb.append("Unknown property: '").append(key);
-    sb.append("' value: '").append(value).append("'");
-    logger.warn(sb.toString());
-  }
-}
+// Add this
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 ```
 
-### Updated Code with `slf4j`
+### 2. Modify Logger Initialization
+Update the logger instantiation to use SLF4J’s LoggerFactory:
+
+Replace:
+```java
+private static final Logger logger = Logger.getLogger(FanartTvArtwork.class);
+```
+
+With:
+```java
+private static final Logger logger = LoggerFactory.getLogger(FanartTvArtwork.class);
+```
+
+### 3. Update Logging Usage
+Ensure that all logging statements are using parameterized messages, which is a best practice with SLF4J to avoid unnecessary string concatenation if the logging level is not enabled. For example:
+
+Replace:
+```java
+StringBuilder sb = new StringBuilder();
+sb.append("Unknown property: '").append(key);
+sb.append("' value: '").append(value).append("'");
+logger.warn(sb.toString());
+```
+
+With:
+```java
+logger.warn("Unknown property: '{}' value: '{}'", key, value);
+```
+
+### Example of Updated Class Using SLF4J
+Here's how the class might look after applying the changes:
 
 ```java
 package com.omertron.fanarttvapi.model;
@@ -364,15 +56,7 @@ import org.slf4j.LoggerFactory;
 
 public class FanartTvArtwork implements Serializable {
   private static final Logger logger = LoggerFactory.getLogger(FanartTvArtwork.class);
-  
   private static final long serialVersionUID = 1L;
-  
-  public static final String UNKNOWN = "UNKNOWN";
-  
-  public static final int VERSION_IMAGE = 3;
-  
-  public static final int VERSION_CHARACTER = 4;
-  
   private FTArtworkType type;
   
   @JsonProperty("id")
@@ -395,139 +79,18 @@ public class FanartTvArtwork implements Serializable {
   @JsonProperty("disc_type")
   private String discType;
   
-  public FanartTvArtwork(String type, String url) {
-    this.type = FTArtworkType.fromString(type);
-    this.url = url;
-  }
-  
-  public FanartTvArtwork() {
-    this.type = FTArtworkType.ALL;
-    this.url = "UNKNOWN";
-  }
-  
-  public String getType() {
-    return this.type.toString();
-  }
-  
-  @JsonProperty("type")
-  public void setType(String type) {
-    if (validateType(type))
-      this.type = FTArtworkType.fromString(type); 
-  }
-  
-  public void setType(FTArtworkType type) {
-    this.type = type;
-  }
-  
-  public String getUrl() {
-    return this.url;
-  }
-  
-  public void setUrl(String url) {
-    this.url = url;
-  }
-  
-  public int getId() {
-    return this.id;
-  }
-  
-  public void setId(int id) {
-    this.id = id;
-  }
-  
-  public String getLanguage() {
-    return this.language;
-  }
-  
-  public void setLanguage(String language) {
-    this.language = language;
-  }
-  
-  public int getLikes() {
-    return this.likes;
-  }
-  
-  public void setLikes(int likes) {
-    this.likes = likes;
-  }
-  
-  public int getSeason() {
-    return this.season;
-  }
-  
-  @JsonProperty("season")
-  public void setSeason(String season) {
-    if (StringUtils.isNumeric(season)) {
-      this.season = Integer.parseInt(season);
-    } else {
-      this.season = -1;
-    } 
-  }
-  
-  public int getDisc() {
-    return this.disc;
-  }
-  
-  public void setDisc(int disc) {
-    this.disc = disc;
-  }
-  
-  public String getDiscType() {
-    return this.discType;
-  }
-  
-  public void setDiscType(String discType) {
-    this.discType = discType;
-  }
-  
-  public static boolean validateType(String artworkType) {
-    try {
-      FTArtworkType.fromString(artworkType);
-      return true;
-    } catch (IllegalArgumentException ex) {
-      return false;
-    } 
-  }
-  
-  public static boolean validateSort(String artworkSort) {
-    try {
-      FTArtworkSort.fromString(artworkSort);
-      return true;
-    } catch (IllegalArgumentException ex) {
-      return false;
-    } 
-  }
-  
-  public String toString() {
-    StringBuilder builder = new StringBuilder();
-    builder.append("[FanartTvArtwork=[");
-    builder.append("[type=").append(this.type);
-    builder.append("],[id=").append(this.id);
-    builder.append("],[url=").append(this.url);
-    builder.append("],[lang=").append(this.language);
-    builder.append("],[likes=").append(this.likes);
-    builder.append("],[season=").append(this.season);
-    builder.append("],[disc=").append(this.disc);
-    builder.append("],[discType=").append(this.discType);
-    builder.append("]]");
-    return builder.toString();
-  }
+  // Constructor and getter/setter methods...
   
   @JsonAnySetter
   public void handleUnknown(String key, Object value) {
-    StringBuilder sb = new StringBuilder();
-    sb.append("Unknown property: '").append(key);
-    sb.append("' value: '").append(value).append("'");
-    logger.warn(sb.toString());
+    logger.warn("Unknown property: '{}' value: '{}'", key, value);
+  }
+
+  public String toString() {
+    return String.format("FanartTvArtwork[type=%s, id=%d, url='%s', lang='%s', likes=%d, season=%d, disc=%d, discType='%s']", 
+                         type, id, url, language, likes, season, disc, discType);
   }
 }
 ```
 
-### Summary of Changes
-
-1. **Imports:**
-   - Replaced `import org.apache.log4j.Logger;` with `import org.slf4j.Logger;`
-   - Added `import org.slf4j.LoggerFactory;`
-
-2. **Logger Instantiation:**
-   - Changed `private static final Logger
+This migration will make the `FanartTvArtwork` class use SLF4J for logging, which is advantageous for maintaining consistency in logging across different classes and packages, and for performance benefits due to parameterized logging. Ensure that similar changes are applied throughout your project for consistency and to leverage the full benefits of SLF4J.

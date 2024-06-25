@@ -1,239 +1,48 @@
-You are a Java code assistant. Given this Java class: 
+To migrate the `WrapperSeries` class from using Log4j to SLF4J, you need to update the import statements and the logger initialization. Here’s a step-by-step guide:
 
-package com.omertron.fanarttvapi.model;
-
-import com.fasterxml.jackson.annotation.JsonAnySetter;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
-import org.apache.log4j.Logger;
-
-public class WrapperSeries {
-  private static final Logger logger = Logger.getLogger(WrapperSeries.class);
-  
-  @JsonProperty("thetvdb_id")
-  private String tvdbid;
-  
-  @JsonProperty("clearlogo")
-  private List<FanartTvArtwork> clearLogo;
-  
-  @JsonProperty("clearart")
-  private List<FanartTvArtwork> clearArt;
-  
-  @JsonProperty("tvthumb")
-  private List<FanartTvArtwork> tvThumb;
-  
-  @JsonProperty("seasonthumb")
-  private List<FanartTvArtwork> seasonThumb;
-  
-  @JsonProperty("characterart")
-  private List<FanartTvArtwork> characterArt;
-  
-  @JsonProperty("showbackground")
-  private List<FanartTvArtwork> showBackground;
-  
-  @JsonProperty("hdclearart")
-  private List<FanartTvArtwork> hdClearart;
-  
-  @JsonProperty("hdtvlogo")
-  private List<FanartTvArtwork> hdTvLogo;
-  
-  public String getTvdbid() {
-    return this.tvdbid;
-  }
-  
-  public void setTvdbid(String tvdbid) {
-    this.tvdbid = tvdbid;
-  }
-  
-  public void setClearArt(List<FanartTvArtwork> clearArt) {
-    this.clearArt = clearArt;
-  }
-  
-  public void setClearLogo(List<FanartTvArtwork> clearLogo) {
-    this.clearLogo = clearLogo;
-  }
-  
-  public void setSeasonThumb(List<FanartTvArtwork> seasonThumb) {
-    this.seasonThumb = seasonThumb;
-  }
-  
-  public void setTvThumb(List<FanartTvArtwork> tvThumb) {
-    this.tvThumb = tvThumb;
-  }
-  
-  public void setCharacterArt(List<FanartTvArtwork> characterArt) {
-    this.characterArt = characterArt;
-  }
-  
-  public void setShowBackground(List<FanartTvArtwork> showBackground) {
-    this.showBackground = showBackground;
-  }
-  
-  public List<FanartTvArtwork> getHdClearart() {
-    return this.hdClearart;
-  }
-  
-  public void setHdClearart(List<FanartTvArtwork> hdClearart) {
-    this.hdClearart = hdClearart;
-  }
-  
-  public List<FanartTvArtwork> getHdTvLogo() {
-    return this.hdTvLogo;
-  }
-  
-  public void setHdTvLogo(List<FanartTvArtwork> hdTvLogo) {
-    this.hdTvLogo = hdTvLogo;
-  }
-  
-  public Map<FTArtworkType, List<FanartTvArtwork>> getArtwork() {
-    Map<FTArtworkType, List<FanartTvArtwork>> artwork = new EnumMap<FTArtworkType, List<FanartTvArtwork>>(FTArtworkType.class);
-    artwork.put(FTArtworkType.CHARACTERART, this.characterArt);
-    artwork.put(FTArtworkType.CLEARART, this.clearArt);
-    artwork.put(FTArtworkType.CLEARLOGO, this.clearLogo);
-    artwork.put(FTArtworkType.SEASONTHUMB, this.seasonThumb);
-    artwork.put(FTArtworkType.TVTHUMB, this.tvThumb);
-    artwork.put(FTArtworkType.SHOWBACKGROUND, this.showBackground);
-    artwork.put(FTArtworkType.HDCLEARART, this.hdClearart);
-    artwork.put(FTArtworkType.HDTVLOGO, this.hdTvLogo);
-    return artwork;
-  }
-  
-  @JsonAnySetter
-  public void handleUnknown(String key, Object value) {
-    StringBuilder sb = new StringBuilder();
-    sb.append("Unknown property: '").append(key);
-    sb.append("' value: '").append(value).append("'");
-    logger.warn(sb.toString());
-  }
-}
-
-
-
-write the needed code to perform the migration from log4j to slf4j library. Highlight the code changes needed to adapt the file please.
-
-To migrate the logging from `log4j` to `slf4j` in the `WrapperSeries` class, you need to:
-
-1. Replace the import statement for `log4j` with the one for `slf4j`.
-2. Change the logger instantiation from `log4j` to `slf4j`.
-
-Here are the specific changes needed in the `WrapperSeries` class:
-
-### Original Code
+### 1. Change Import Statements
+Switch the Log4j import statement to the corresponding SLF4J import:
 
 ```java
-package com.omertron.fanarttvapi.model;
-
-import com.fasterxml.jackson.annotation.JsonAnySetter;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
+// Remove this
 import org.apache.log4j.Logger;
 
-public class WrapperSeries {
-  private static final Logger logger = Logger.getLogger(WrapperSeries.class);
-  
-  @JsonProperty("thetvdb_id")
-  private String tvdbid;
-  
-  @JsonProperty("clearlogo")
-  private List<FanartTvArtwork> clearLogo;
-  
-  @JsonProperty("clearart")
-  private List<FanartTvArtwork> clearArt;
-  
-  @JsonProperty("tvthumb")
-  private List<FanartTvArtwork> tvThumb;
-  
-  @JsonProperty("seasonthumb")
-  private List<FanartTvArtwork> seasonThumb;
-  
-  @JsonProperty("characterart")
-  private List<FanartTvArtwork> characterArt;
-  
-  @JsonProperty("showbackground")
-  private List<FanartTvArtwork> showBackground;
-  
-  @JsonProperty("hdclearart")
-  private List<FanartTvArtwork> hdClearart;
-  
-  @JsonProperty("hdtvlogo")
-  private List<FanartTvArtwork> hdTvLogo;
-  
-  public String getTvdbid() {
-    return this.tvdbid;
-  }
-  
-  public void setTvdbid(String tvdbid) {
-    this.tvdbid = tvdbid;
-  }
-  
-  public void setClearArt(List<FanartTvArtwork> clearArt) {
-    this.clearArt = clearArt;
-  }
-  
-  public void setClearLogo(List<FanartTvArtwork> clearLogo) {
-    this.clearLogo = clearLogo;
-  }
-  
-  public void setSeasonThumb(List<FanartTvArtwork> seasonThumb) {
-    this.seasonThumb = seasonThumb;
-  }
-  
-  public void setTvThumb(List<FanartTvArtwork> tvThumb) {
-    this.tvThumb = tvThumb;
-  }
-  
-  public void setCharacterArt(List<FanartTvArtwork> characterArt) {
-    this.characterArt = characterArt;
-  }
-  
-  public void setShowBackground(List<FanartTvArtwork> showBackground) {
-    this.showBackground = showBackground;
-  }
-  
-  public List<FanartTvArtwork> getHdClearart() {
-    return this.hdClearart;
-  }
-  
-  public void setHdClearart(List<FanartTvArtwork> hdClearart) {
-    this.hdClearart = hdClearart;
-  }
-  
-  public List<FanartTvArtwork> getHdTvLogo() {
-    return this.hdTvLogo;
-  }
-  
-  public void setHdTvLogo(List<FanartTvArtwork> hdTvLogo) {
-    this.hdTvLogo = hdTvLogo;
-  }
-  
-  public Map<FTArtworkType, List<FanartTvArtwork>> getArtwork() {
-    Map<FTArtworkType, List<FanartTvArtwork>> artwork = new EnumMap<FTArtworkType, List<FanartTvArtwork>>(FTArtworkType.class);
-    artwork.put(FTArtworkType.CHARACTERART, this.characterArt);
-    artwork.put(FTArtworkType.CLEARART, this.clearArt);
-    artwork.put(FTArtworkType.CLEARLOGO, this.clearLogo);
-    artwork.put(FTArtworkType.SEASONTHUMB, this.seasonThumb);
-    artwork.put(FTArtworkType.TVTHUMB, this.tvThumb);
-    artwork.put(FTArtworkType.SHOWBACKGROUND, this.showBackground);
-    artwork.put(FTArtworkType.HDCLEARART, this.hdClearart);
-    artwork.put(FTArtworkType.HDTVLOGO, this.hdTvLogo);
-    return artwork;
-  }
-  
-  @JsonAnySetter
-  public void handleUnknown(String key, Object value) {
-    StringBuilder sb = new StringBuilder();
-    sb.append("Unknown property: '").append(key);
-    sb.append("' value: '").append(value).append("'");
-    logger.warn(sb.toString());
-  }
-}
+// Add this
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 ```
 
-### Updated Code with `slf4j`
+### 2. Modify Logger Initialization
+Update the logger instantiation to use SLF4J's `LoggerFactory`:
+
+Replace:
+```java
+private static final Logger logger = Logger.getLogger(WrapperSeries.class);
+```
+
+With:
+```java
+private static final Logger logger = LoggerFactory.getLogger(WrapperSeries.class);
+```
+
+### 3. Update Logging Usage
+Ensure all logging statements use parameterized messages, which is a best practice with SLF4J to prevent unnecessary string concatenation when the logging level is not enabled. For example:
+
+Replace:
+```java
+StringBuilder sb = new StringBuilder();
+sb.append("Unknown property: '").append(key);
+sb.append("' value: '").append(value).append("'");
+logger.warn(sb.toString());
+```
+
+With:
+```java
+logger.warn("Unknown property: '{}' value: '{}'", key, value);
+```
+
+### Example of Updated Class Using SLF4J
+Here's how the class might look after applying the changes:
 
 ```java
 package com.omertron.fanarttvapi.model;
@@ -276,53 +85,7 @@ public class WrapperSeries {
   @JsonProperty("hdtvlogo")
   private List<FanartTvArtwork> hdTvLogo;
   
-  public String getTvdbid() {
-    return this.tvdbid;
-  }
-  
-  public void setTvdbid(String tvdbid) {
-    this.tvdbid = tvdbid;
-  }
-  
-  public void setClearArt(List<FanartTvArtwork> clearArt) {
-    this.clearArt = clearArt;
-  }
-  
-  public void setClearLogo(List<FanartTvArtwork> clearLogo) {
-    this.clearLogo = clearLogo;
-  }
-  
-  public void setSeasonThumb(List<FanartTvArtwork> seasonThumb) {
-    this.seasonThumb = seasonThumb;
-  }
-  
-  public void setTvThumb(List<FanartTvArtwork> tvThumb) {
-    this.tvThumb = tvThumb;
-  }
-  
-  public void setCharacterArt(List<FanartTvArtwork> characterArt) {
-    this.characterArt = characterArt;
-  }
-  
-  public void setShowBackground(List<FanartTvArtwork> showBackground) {
-    this.showBackground = showBackground;
-  }
-  
-  public List<FanartTvArtwork> getHdClearart() {
-    return this.hdClearart;
-  }
-  
-  public void setHdClearart(List<FanartTvArtwork> hdClearart) {
-    this.hdClearart = hdClearart;
-  }
-  
-  public List<FanartTvArtwork> getHdTvLogo() {
-    return this.hdTvLogo;
-  }
-  
-  public void setHdTvLogo(List<FanartTvArtwork> hdTvLogo) {
-    this.hdTvLogo = hdTvLogo;
-  }
+  // Methods...
   
   public Map<FTArtworkType, List<FanartTvArtwork>> getArtwork() {
     Map<FTArtworkType, List<FanartTvArtwork>> artwork = new EnumMap<>(FTArtworkType.class);
@@ -339,19 +102,9 @@ public class WrapperSeries {
   
   @JsonAnySetter
   public void handleUnknown(String key, Object value) {
-    StringBuilder sb = new StringBuilder();
-    sb.append("Unknown property: '").append(key);
-    sb.append("' value: '").append(value).append("'");
-    logger.warn(sb.toString());
+    logger.warn("Unknown property: '{}' value: '{}'", key, value);
   }
 }
 ```
 
-### Summary of Changes
-
-1. **Imports:**
-   - Replaced `import org.apache.log4j.Logger;` with `import org.slf4j.Logger;`
-   - Added `import org.slf4j.LoggerFactory;`
-
-2. **Logger Instantiation:**
-   - Changed `private static final Logger logger = Logger.getLogger(WrapperSeries.class);` to `private static final Logger logger = LoggerFactory.getLogger(WrapperSeries.class);`
+This conversion makes the `WrapperSeries` class utilize SLF4J, which offers flexibility in logging frameworks and improves performance due to its parameterized logging capabilities. Make sure similar changes are applied throughout the project to maintain consistency and fully leverage SLF4J’s benefits.
