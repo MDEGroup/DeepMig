@@ -1,5 +1,6 @@
-You are a Java code assistant. Given this Java class: 
+To migrate the `BaseController` class from using Log4j2 to the SLF4J library, the changes involve updating the import statement for the logger, changing how the logger is instantiated, and adjusting the logging method call to use SLF4J's parameterized logging. Here's the updated class with these changes:
 
+```java
 package com.llsfw.core.controller.base;
 
 import com.llsfw.core.common.ResourceBundleMessage;
@@ -8,8 +9,8 @@ import com.llsfw.generator.model.standard.system.TtDynamicDataSource;
 import java.util.Enumeration;
 import java.util.ResourceBundle;
 import javax.servlet.http.HttpServletRequest;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.shiro.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -18,7 +19,7 @@ import org.springframework.web.servlet.support.RequestContext;
 
 @Controller
 public class BaseController {
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(BaseController.class);
   
   @Autowired
   private DynamicDataSourceService ddss;
@@ -48,32 +49,15 @@ public class BaseController {
   }
   
   public TtDynamicDataSource getDynamicDataSoucre(String dataSourceName) {
-    LOG.debug("load DynamicDataSource name is : " + dataSourceName);
+    LOG.debug("load DynamicDataSource name is : {}", dataSourceName);
     return this.ddss.getDataSourceData(dataSourceName);
   }
 }
-
-
-Can you show me just the required modification to perform the migration from log4j to slf4j library please?
-
-To migrate the `BaseController` class from using Log4j to SLF4J, you'll need to change the logger import statements and update how you instantiate the logger. Here are the changes you should make:
-
-### Modifications
-
-**Before (using Log4j):**
-```java
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-private static final Logger LOG = LogManager.getLogger();
 ```
 
-**After (using SLF4J):**
-```java
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+### Key Changes:
+1. **Logger Import**: Changed from `org.apache.logging.log4j.LogManager` and `org.apache.logging.log4j.Logger` to `org.slf4j.LoggerFactory` and `org.slf4j.Logger`.
+2. **Logger Instantiation**: Changed from `LogManager.getLogger()` to `LoggerFactory.getLogger(BaseController.class)`.
+3. **Logging Call**: Updated the logging call to use parameterized messages with `{}` as placeholders. This approach prevents unnecessary string concatenation when the log level is disabled.
 
-private static final Logger LOG = LoggerFactory.getLogger(BaseController.class);
-```
-
-These changes convert the logger setup to use SLF4J, which is a more flexible logging facade that can work with various logging implementations, including Log4j, Logback, and others. This is particularly useful in a Spring context where you might want to switch logging configurations without changing the application code.
+These changes integrate SLF4J into your class, enhancing the flexibility to switch logging frameworks by just changing the logger binding without altering the source code.

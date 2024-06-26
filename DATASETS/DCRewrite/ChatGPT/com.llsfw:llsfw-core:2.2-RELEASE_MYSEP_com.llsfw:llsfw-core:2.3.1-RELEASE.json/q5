@@ -1,0 +1,54 @@
+To migrate the `AbstractBaseJob` class from using Log4j2 to the SLF4J library, you will need to adjust the logger import and instantiation method. Here's how you can update the class to use SLF4J:
+
+1. **Change the Logger Import**: Replace the Log4j2 import with the SLF4J import.
+2. **Update Logger Instantiation**: Use SLF4J's `LoggerFactory` to instantiate the logger.
+3. **Update Logging Methods**: Adjust the logging method calls to use the parameterized logging available in SLF4J, which helps prevent unnecessary string concatenation.
+
+Here is the updated code with these changes:
+
+```java
+package com.llsfw.core.scheduler;
+
+import java.util.Random;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.scheduling.quartz.QuartzJobBean;
+
+public abstract class AbstractBaseJob extends QuartzJobBean {
+  private static final Logger LOG = LoggerFactory.getLogger(AbstractBaseJob.class);
+  
+  private ApplicationContext applicationContext;
+  
+  public ApplicationContext getApplicationContext() {
+    return this.applicationContext;
+  }
+  
+  public void setApplicationContext(ApplicationContext applicationContext) {
+    this.applicationContext = applicationContext;
+  }
+  
+  protected abstract void executeInternal(JobExecutionContext paramJobExecutionContext) throws JobExecutionException;
+  
+  public void sleep(String name, int time) {
+    try {
+      Random r = new Random();
+      int rInt = r.nextInt(time);
+      LOG.info("{} sleep time: {}", name, rInt);
+      Thread.sleep(rInt);
+    } catch (InterruptedException e) {
+      LOG.error("Interrupted during sleep", e);
+    } 
+  }
+}
+```
+
+### Key Changes:
+- **Logger Import**: Changed from `org.apache.logging.log4j.LogManager` and `org.apache.logging.log4j.Logger` to `org.slf4j.LoggerFactory` and `org.slf4j.Logger`.
+- **Logger Instantiation**: Changed from `LogManager.getLogger()` to `LoggerFactory.getLogger(AbstractBaseJob.class)`.
+- **Logging Calls**: Updated the logging calls to use parameterized messages, improving performance by avoiding string concatenation unless the logging level is enabled.
+- **Error Logging**: The error logging has been slightly rephrased for clarity.
+
+These changes ensure that your class now uses SLF4J for logging, which provides a more flexible logging configuration and the ability to switch logging frameworks without changing the application code.

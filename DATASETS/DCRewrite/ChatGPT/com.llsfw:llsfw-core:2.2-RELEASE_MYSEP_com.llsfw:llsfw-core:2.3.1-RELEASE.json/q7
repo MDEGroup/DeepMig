@@ -1,5 +1,6 @@
-You are a Java code assistant. Given this Java class: 
+To migrate the `Ftp` class from using Log4j to the SLF4J library, the changes involve updating the import statements for the logger and changing how the logger is instantiated. Here's the updated class with these changes:
 
+```java
 package com.llsfw.core.security.session.redis;
 
 import com.llsfw.core.security.session.SerializeUtils;
@@ -9,13 +10,13 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.shiro.cache.Cache;
 import org.springframework.util.CollectionUtils;
 
 public class RedisCache<K, V> implements Cache<K, V> {
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(RedisCache.class);
   
   private DbManager cache;
   
@@ -41,7 +42,7 @@ public class RedisCache<K, V> implements Cache<K, V> {
   }
   
   public V get(K key) {
-    LOG.debug("[cache]key [" + key + "]");
+    LOG.debug("[cache]key [{}]", key);
     if (key == null)
       return null; 
     byte[] rawValue = this.cache.get(getByteKey(key));
@@ -49,20 +50,20 @@ public class RedisCache<K, V> implements Cache<K, V> {
   }
   
   public V put(K key, V value) {
-    LOG.debug("[cache]key [" + key + "]");
+    LOG.debug("[cache]key [{}]", key);
     this.cache.set(getByteKey(key), SerializeUtils.serialize(value));
     return value;
   }
   
   public V remove(K key) {
-    LOG.debug("[cache]key [" + key + "]");
+    LOG.debug("[cache]key [{}]", key);
     V previous = get(key);
     this.cache.del(getByteKey(key));
     return previous;
   }
   
   public void clear() {
-    LOG.debug("[cache]);
+    LOG.debug("[cache]");
     this.cache.flushDB();
   }
   
@@ -72,7 +73,7 @@ public class RedisCache<K, V> implements Cache<K, V> {
   }
   
   public Set<K> keys() {
-    LOG.debug("[cache]);
+    LOG.debug("[cache]");
     Set<byte[]> keys = this.cache.keys(this.keyPrefix + "*");
     if (CollectionUtils.isEmpty(keys))
       return Collections.emptySet(); 
@@ -83,7 +84,7 @@ public class RedisCache<K, V> implements Cache<K, V> {
   }
   
   public Collection<V> values() {
-    LOG.debug("[cache]);
+    LOG.debug("[cache]");
     Set<byte[]> keys = this.cache.keys(this.keyPrefix + "*");
     if (!CollectionUtils.isEmpty(keys)) {
       List<V> values = new ArrayList<>(keys.size());
@@ -97,34 +98,11 @@ public class RedisCache<K, V> implements Cache<K, V> {
     return Collections.emptyList();
   }
 }
-
-
-Can you show me just the required modification to perform the migration from log4j to slf4j library please?
-
-To migrate the `RedisCache` class from using Log4j to SLF4J, you need to make the following modifications:
-
-1. **Change the Logger import:**
-   Replace `org.apache.logging.log4j.LogManager` and `org.apache.logging.log4j.Logger` with `org.slf4j.Logger` and `org.slf4j.LoggerFactory`.
-
-2. **Change the Logger initialization:**
-   Replace `LogManager.getLogger()` with `LoggerFactory.getLogger(RedisCache.class)`.
-
-### Modifications
-
-**Before (Log4j)**
-```java
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-private static final Logger LOG = LogManager.getLogger();
 ```
 
-**After (SLF4J)**
-```java
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+### Key Changes:
+1. **Logger Import**: Changed from `org.apache.logging.log4j.LogManager` and `org.apache.logging.log4j.Logger` to `org.slf4j.LoggerFactory` and `org.slf4j.Logger`.
+2. **Logger Instantiation**: Changed from `LogManager.getLogger()` to `LoggerFactory.getLogger(RedisCache.class)`.
+3. **Logging Calls**: Updated the logging calls to use SLF4J's parameterized messages with `{}` as placeholders. This approach prevents unnecessary string concatenation when the log level is disabled.
 
-private static final Logger LOG = LoggerFactory.getLogger(RedisCache.class);
-```
-
-These changes update the logging framework from Log4j to SLF4J for the `RedisCache` class, providing a more flexible abstraction for logging without being bound to a specific logging implementation.
+These changes ensure that the class is compatible with SLF4J, enhancing the flexibility to switch between different logging frameworks by just changing the logger binding.

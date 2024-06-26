@@ -1,0 +1,44 @@
+To migrate the `PageInterceptor` class
+
+To migrate the `PageInterceptor` class from using `Log4j` to `SLF4J`, the primary change involves modifying how the `Logger` is instantiated and potentially how messages are logged. Here are the changes needed for the `PageInterceptor` class:
+
+1. **Change Logger Import:**
+   - Replace the import statement for Log4j with the one for SLF4J.
+
+   Replace:
+   ```java
+   import org.apache.logging.log4j.LogManager;
+   import org.apache.logging.log4j.Logger;
+   ```
+   With:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. **Modify Logger Instantiation:**
+   - Change the logger instantiation to use `LoggerFactory` from SLF4J.
+
+   Replace:
+   ```java
+   private static final Logger LOG = LogManager.getLogger();
+   ```
+   With:
+   ```java
+   private static final Logger LOG = LoggerFactory.getLogger(PageInterceptor.class);
+   ```
+
+3. **Review Log Messages:**
+   - Ensure that logging statements use placeholders (`{}`) instead of string concatenation for better performance and readability. SLF4J supports parameterized messages which prevent string concatenation when the log level is not enabled.
+
+   Example Change:
+   Before:
+   ```java
+   LOG.debug("MappedStatement id = " + id);
+   ```
+   After:
+   ```java
+   LOG.debug("MappedStatement id = {}", id);
+   ```
+
+These changes not only switch the logging framework but also optimize logging operations by avoiding unnecessary string concatenations when the log level is disabled. The rest of the class structure and logic remain unaffected by this transition to SLF4J. Ensure all log statements throughout the class are similarly updated to use parameterized logging where applicable.

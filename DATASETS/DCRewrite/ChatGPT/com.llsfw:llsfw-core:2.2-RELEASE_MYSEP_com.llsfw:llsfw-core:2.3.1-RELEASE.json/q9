@@ -1,0 +1,31 @@
+To migrate the `SystemParamDef` class from using Log4j to the SLF4J library, the changes involve updating the import statements for the logger and modifying the logger instantiation. Here’s how you can revise the class implementation:
+
+```java
+package com.llsfw.core.common;
+
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class SystemParamDef {
+  private static final Logger LOG = LoggerFactory.getLogger(SystemParamDef.class);
+  
+  private Map<String, String> data;
+  
+  public Map<String, String> getData() {
+    return this.data;
+  }
+  
+  public void setData(Map<String, String> data) {
+    this.data = data;
+    LOG.debug("data: {}", this.data);
+  }
+}
+```
+
+### Key Changes:
+1. **Logger Import**: Changed from `org.apache.logging.log4j.LogManager` and `org.apache.logging.log4j.Logger` to `org.slf4j.LoggerFactory` and `org.slf4j.Logger`.
+2. **Logger Instantiation**: Changed from `LogManager.getLogger()` to `LoggerFactory.getLogger(SystemParamDef.class)`.
+3. **Logging Statement**: Updated the debug log statement to use SLF4J’s parameterized message format. Instead of string concatenation, it uses `{}` as a placeholder for `this.data`.
+
+These modifications adapt the class to use the SLF4J API, which allows for more flexibility in choosing the underlying logging implementation and promotes better logging practices.

@@ -1,0 +1,52 @@
+To migrate the `RedisCacheManager` class from using Log4j2 to the SLF4J library, you will need to adjust the logger import and instantiation method. Here's how you can update the class to use SLF4J:
+
+1. **Change the Logger Import**: Replace the Log4j2 import with the SLF4J import.
+2. **Update Logger Instantiation**: Use SLF4J's `LoggerFactory` to instantiate the logger.
+
+Here is the updated code with these changes:
+
+```java
+package com.llsfw.core.security.session.redis;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.apache.shiro.cache.Cache;
+import org.apache.shiro.cache.CacheManager;
+
+public class RedisCacheManager implements CacheManager {
+  private static final Logger LOG = LoggerFactory.getLogger(RedisCacheManager.class);
+  
+  private String keyPrefix;
+  
+  private DbManager dbManager;
+  
+  public String getKeyPrefix() {
+    return this.keyPrefix;
+  }
+  
+  public void setKeyPrefix(String keyPrefix) {
+    this.keyPrefix = keyPrefix;
+  }
+  
+  public DbManager getDbManager() {
+    return this.dbManager;
+  }
+  
+  public void setDbManager(DbManager dbManager) {
+    this.dbManager = dbManager;
+  }
+  
+  @Override
+  public <K, V> Cache<K, V> getCache(String name) {
+    LOG.debug("Requesting cache for name: {}", name);
+    return new RedisCache<>(this.dbManager, this.keyPrefix);
+  }
+}
+```
+
+### Key Changes:
+- **Logger Import**: Changed from `org.apache.logging.log4j.LogManager` and `org.apache.logging.log4j.Logger` to `org.slf4j.LoggerFactory` and `org.slf4j.Logger`.
+- **Logger Instantiation**: Changed from `LogManager.getLogger()` to `LoggerFactory.getLogger(RedisCacheManager.class)`.
+- **Debug Logging**: Updated the debug logging line to use parameterized messages which is a recommended practice in SLF4J to avoid unnecessary string concatenation when the logging level is disabled.
+
+These changes ensure that your class now uses SLF4J for logging, making it easier to manage and switch underlying logging frameworks if needed.
