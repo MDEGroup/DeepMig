@@ -1,0 +1,40 @@
+To migrate the `TargetSenderWorker` class from Log4j to the SLF4J logging framework, follow these steps:
+
+1. **Change the Import Statement**:
+   Replace the import for Log4j with the imports for SLF4J.
+
+   Change from:
+   ```java
+   import org.apache.log4j.Logger;
+   ```
+   Change to:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. **Modify Logger Initialization**:
+   Update the instantiation of the logger object to use SLF4J's `LoggerFactory`.
+
+   Change from:
+   ```java
+   private static final Logger LOGGER = Logger.getLogger(TargetSenderWorker.class);
+   ```
+   Change to:
+   ```java
+   private static final Logger LOGGER = LoggerFactory.getLogger(TargetSenderWorker.class);
+   ```
+
+3. **Adjust Logging Calls (if necessary)**:
+   SLF4J supports parameterized messages, which can improve performance by avoiding string concatenation when the log level is not enabled. Consider modifying the logging calls to utilize this feature.
+
+   For example, if you have:
+   ```java
+   LOGGER.debug("CDB bytes: \n" + Debug.byteBufferToString(parser.getCDB()));
+   ```
+   You can change it to:
+   ```java
+   LOGGER.debug("CDB bytes: \n{}", Debug.byteBufferToString(parser.getCDB()));
+   ```
+
+These changes ensure that `TargetSenderWorker` utilizes the SLF4J framework, providing more flexibility for managing logging dependencies and potentially improving performance due to parameterized logging.

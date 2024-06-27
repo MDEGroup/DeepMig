@@ -1,0 +1,29 @@
+To migrate the `BasicHttpCache` class from using Log4j to SLF4J, you will need to update the import statements and modify how the logger is initialized. Below are the detailed steps to make these changes:
+
+1. **Update Import Statements:**
+   Change the imports to use SLF4J classes instead of Log4j classes.
+
+   Replace:
+   ```java
+   import org.apache.logging.log4j.LogManager;
+   import org.apache.logging.log4j.Logger;
+   ```
+   With:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. **Change Logger Initialization:**
+   Modify the instantiation of the Logger instance to use SLF4J's `LoggerFactory`.
+
+   Replace:
+   ```java
+   private final Logger log = LogManager.getLogger(getClass());
+   ```
+   With:
+   ```java
+   private final Logger log = LoggerFactory.getLogger(getClass());
+   ```
+
+By making these changes, you'll effectively switch the logging framework from Log4j to SLF4J. Ensure that SLF4J and its necessary binding to a logging implementation (like Logback, or a bridge for Log4j 2.x if you wish to keep using Log4j 2.x as the backend) are included in your project dependencies. This setup will enable logging through SLF4J, which provides flexibility in choosing or changing the underlying logging framework without changing the logging interface in your code.

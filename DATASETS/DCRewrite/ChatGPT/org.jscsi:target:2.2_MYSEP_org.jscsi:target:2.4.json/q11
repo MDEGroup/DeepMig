@@ -1,0 +1,42 @@
+To migrate the `FormatUnitStage` class from using Log4j to SLF4J, you'll need to make the following adjustments:
+
+1. **Change the import statement**:
+   Switch the logger import from Log4j to SLF4J.
+
+   Replace this:
+   ```java
+   import org.apache.log4j.Logger;
+   ```
+   With this:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. **Modify the logger instantiation**:
+   Update the instantiation of the logger object to use SLF4J's `LoggerFactory`.
+
+   Change this:
+   ```java
+   private static final Logger LOGGER = Logger.getLogger(ReadStage.class);
+   ```
+   To this:
+   ```java
+   private static final Logger LOGGER = LoggerFactory.getLogger(ReadStage.class);
+   ```
+
+3. **Review and adjust logging calls if necessary**:
+   SLF4J supports parameterized messages, which can improve performance and readability. You might consider converting log messages to this format, particularly where string concatenation is currently used.
+
+   For example, convert this:
+   ```java
+   LOGGER.debug("Initiator has sent FORMAT UNIT command.");
+   ```
+   To this, if additional variable content needs to be logged:
+   ```java
+   LOGGER.debug("Initiator has sent FORMAT UNIT command: {}", commandDetails);
+   ```
+
+   (Where `commandDetails` is a placeholder for any actual variable you might want to log.)
+
+These changes will ensure that your class uses SLF4J for logging. This shift will help with performance optimization through deferred computation of the log message only if the log level is enabled and enhanced flexibility through easier logging framework switching.

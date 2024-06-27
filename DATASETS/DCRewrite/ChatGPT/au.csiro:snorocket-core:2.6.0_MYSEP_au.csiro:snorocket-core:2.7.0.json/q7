@@ -1,0 +1,49 @@
+To migrate the `SnorocketOWLReasoner` class from using Log4j to SLF4J, follow these steps to update the logging setup:
+
+1. **Change Import Statements**:
+   Replace the Log4j import statement with the SLF4J equivalents.
+
+   Change:
+   ```java
+   import org.apache.log4j.Logger;
+   ```
+   To:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. **Modify Logger Initialization**:
+   Update the logger instantiation to use SLF4J's `LoggerFactory`.
+
+   Change from:
+   ```java
+   private static final Logger log = Logger.getLogger(SnorocketOWLReasoner.class);
+   ```
+   To:
+   ```java
+   private static final Logger log = LoggerFactory.getLogger(SnorocketOWLReasoner.class);
+   ```
+
+3. **Adjust Logging Methods**:
+   Ensure that all logging methods match SLF4J's API. SLF4J uses `{}` as placeholders for log message parameters instead of concatenating strings or using formatter symbols.
+
+   For example, change:
+   ```java
+   log.warn("Some warnings were detected while importing the ontology: " + sb.toString());
+   ```
+   To:
+   ```java
+   log.warn("Some warnings were detected while importing the ontology: {}", sb.toString());
+   ```
+
+   And:
+   ```java
+   log.error(sb.toString(), e);
+   ```
+   To:
+   ```java
+   log.error("Could not import ontology. {}", sb.toString(), e);
+   ```
+
+These modifications will enable the `SnorocketOWLReasoner` class to use SLF4J as its logging framework, improving flexibility and compatibility with different logging frameworks that SLF4J supports as back-ends.
