@@ -1,0 +1,40 @@
+To migrate the `GCI` class from using Log4j to SLF4J, you should follow these steps:
+
+1. **Change the Import Statements**:
+   Replace the Log4j import with the SLF4J imports.
+
+   Change this:
+   ```java
+   import org.apache.log4j.Logger;
+   ```
+   To this:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. **Modify Logger Initialization**:
+   Update the instantiation of the logger object to use SLF4J's `LoggerFactory`.
+
+   Change from:
+   ```java
+   private static final Logger log = Logger.getLogger(GCI.class);
+   ```
+   To:
+   ```java
+   private static final Logger log = LoggerFactory.getLogger(GCI.class);
+   ```
+
+3. **Adjust Logging Calls**:
+   SLF4J supports parameterized logging which can improve performance by avoiding string concatenation when the log level is not enabled. Modify the logging statements to use this feature.
+
+   For example, if you had a logging call that looked like this:
+   ```java
+   log.warn("Empty conjunct detected in: " + this);
+   ```
+   Change it to:
+   ```java
+   log.warn("Empty conjunct detected in: {}", this);
+   ```
+
+Implementing these changes will convert the logging system in your class from Log4j to SLF4J. This not only simplifies the logging API usage but also provides a more flexible logging framework, which can be easily swapped or modified with different logging configurations and styles.

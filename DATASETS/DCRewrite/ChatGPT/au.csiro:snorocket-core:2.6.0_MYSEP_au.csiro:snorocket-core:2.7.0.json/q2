@@ -1,0 +1,50 @@
+To migrate the `SnorocketReasoner` class from using Log4j to SLF4J, you should make the following changes:
+
+1. **Change the Import Statements**:
+   Replace the Log4j import with the SLF4J imports.
+
+   Change this:
+   ```java
+   import org.apache.log4j.Logger;
+   ```
+   To this:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. **Modify Logger Initialization**:
+   Update the instantiation of the logger object to use SLF4J's `LoggerFactory`.
+
+   Change from:
+   ```java
+   private static final Logger log = Logger.getLogger(SnorocketReasoner.class);
+   ```
+   To:
+   ```java
+   private static final Logger log = LoggerFactory.getLogger(SnorocketReasoner.class);
+   ```
+
+3. **Adjust Logging Calls**:
+   SLF4J supports parameterized logging which can improve performance by avoiding string concatenation when the log level is not enabled. Modify the logging statements to use this feature.
+
+   For example, if you had a logging call that looked like this:
+   ```java
+   log.error("Problem loading reasoner." + e);
+   ```
+   Change it to:
+   ```java
+   log.error("Problem loading reasoner.", e);
+   ```
+
+   Similarly, for trace logs, if there are any:
+   ```java
+   if (log.isTraceEnabled())
+       log.trace("role resize to: " + this.roles.length);
+   ```
+   Change to:
+   ```java
+   log.trace("role resize to: {}", this.roles.length);
+   ```
+
+These steps convert the logging system in your class from Log4j to SLF4J, making it more flexible and better suited for modern Java projects, with improved performance due to SLF4J's advanced message formatting capabilities.

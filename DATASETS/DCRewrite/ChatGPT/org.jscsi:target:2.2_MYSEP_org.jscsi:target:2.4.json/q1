@@ -1,0 +1,43 @@
+To migrate the `TargetServer` class from using `Log4j` to `SLF4J`, you need to make changes similar to those detailed earlier. Here is a step-by-step guide for this particular class:
+
+1. **Change the Logger Import:**
+   Replace the Log4j import statements with the corresponding SLF4J imports.
+
+   Replace:
+   ```java
+   import org.apache.log4j.Logger;
+   import org.apache.log4j.LogManager;
+   ```
+   With:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. **Modify Logger Instantiation:**
+   Update the instantiation of the logger to use SLF4J's LoggerFactory.
+
+   Replace:
+   ```java
+   private static final Logger LOGGER = LogManager.getLogger();
+   ```
+   With:
+   ```java
+   private static final Logger LOGGER = LoggerFactory.getLogger(TargetServer.class);
+   ```
+
+3. **Review and Update Log Messages:**
+   Change log message formats to use SLF4J's style of message formatting with `{}` as placeholders instead of concatenation.
+
+   Before:
+   ```java
+   LOGGER.debug("MappedStatement id = " + id);
+   ```
+   After:
+   ```java
+   LOGGER.debug("MappedStatement id = {}", id);
+   ```
+
+   Check for other logging statements throughout the class to ensure they follow this format.
+
+These changes ensure that the logging framework is correctly migrated from Log4j to SLF4J. This will not only standardize the logging across the application but also take advantage of SLF4J's benefits such as improved performance due to deferred computation of the log message until it is actually logged, and better abstraction of the logging backend.

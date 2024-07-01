@@ -1,0 +1,64 @@
+To migrate the `LoginOperationalParameterNegotiationStage` class from using Log4j to SLF4J, you'll need to make the following adjustments:
+
+1. **Update Import Statements:**
+   Replace the Log4j import with the SLF4J import.
+   ```java
+   import org.apache.log4j.Logger;
+   ```
+   Change to:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. **Change Logger Instantiation:**
+   Modify how the logger is instantiated to use SLF4J's `LoggerFactory`.
+   ```java
+   private static final Logger LOGGER = Logger.getLogger(LoginOperationalParameterNegotiationStage.class);
+   ```
+   Should be updated to:
+   ```java
+   private static final Logger LOGGER = LoggerFactory.getLogger(LoginOperationalParameterNegotiationStage.class);
+   ```
+
+3. **Adjust Logging Statements:**
+   If there are any debug or error logging statements, make sure to use SLF4J's parameterized logging where applicable, which avoids unnecessary string concatenation when logging is disabled for the respective level.
+
+   For example, replace:
+   ```java
+   LOGGER.debug("request: " + sb.toString());
+   ```
+   With:
+   ```java
+   LOGGER.debug("request: {}", sb.toString());
+   ```
+
+   And:
+   ```java
+   LOGGER.error("Error message here" + variable);
+   ```
+   With:
+   ```java
+   LOGGER.error("Error message here {}", variable);
+   ```
+
+   Ensure that if any logging statements involve exceptions, the exception is passed as a separate parameter:
+   ```java
+   LOGGER.error("Error processing request", e);
+   ```
+
+4. **Remove Unnecessary Logging Condition Checks:**
+   If there are conditions checking whether a specific log level is enabled (common with Log4j to avoid constructing complex messages unnecessarily), these can typically be removed because SLF4J's parameterized logging inherently handles this:
+
+   Instead of:
+   ```java
+   if (LOGGER.isDebugEnabled()) {
+       LOGGER.debug("Some debug message");
+   }
+   ```
+   You can simply use:
+   ```java
+   LOGGER.debug("Some debug message");
+   ```
+
+These changes will ensure that your class uses SLF4J for logging, which can help with consistency across your application and improve performance due to the reduced string concatenation.

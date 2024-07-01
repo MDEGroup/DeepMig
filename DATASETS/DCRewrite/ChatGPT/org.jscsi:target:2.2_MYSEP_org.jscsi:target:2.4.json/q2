@@ -1,0 +1,51 @@
+To migrate the `RandomAccessStorageModule` class from using Log4j to SLF4J, you'll need to make the following changes:
+
+1. **Change the Logger Import:**
+   Replace the Log4j import statement with the corresponding SLF4J import.
+
+   Replace:
+   ```java
+   import org.apache.log4j.Logger;
+   ```
+   With:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. **Modify Logger Instantiation:**
+   Update the instantiation of the logger to use SLF4J's LoggerFactory.
+
+   Replace:
+   ```java
+   private static final Logger LOGGER = Logger.getLogger(RandomAccessStorageModule.class);
+   ```
+   With:
+   ```java
+   private static final Logger LOGGER = LoggerFactory.getLogger(RandomAccessStorageModule.class);
+   ```
+
+3. **Update Log Messages:**
+   Change log message formats to use SLF4J's style of message formatting with `{}` as placeholders instead of concatenation.
+
+   For example, before:
+   ```java
+   LOGGER.debug("Removal of old storage " + pToCreate.toString() + " successful.");
+   ```
+   After:
+   ```java
+   LOGGER.debug("Removal of old storage {} successful.", pToCreate.toString());
+   ```
+
+   Before:
+   ```java
+   LOGGER.fatal("Exception creating storage volume " + pToCreate.getAbsolutePath() + ": " + e.getMessage(), e);
+   ```
+   After:
+   ```java
+   LOGGER.error("Exception creating storage volume {}: {}", pToCreate.getAbsolutePath(), e.getMessage(), e);
+   ```
+
+   **Note**: SLF4J does not have a `fatal` level. Typically, `fatal` is mapped to `error` in SLF4J unless you configure a specific logger to handle it differently.
+
+These changes ensure that the logging framework is correctly migrated from Log4j to SLF4J, leveraging the benefits of the latter such as better abstraction of the logging backend and potentially better performance due to deferred computation of the log message until it is actually logged.

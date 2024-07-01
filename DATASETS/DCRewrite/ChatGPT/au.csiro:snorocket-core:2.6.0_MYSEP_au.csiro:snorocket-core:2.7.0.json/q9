@@ -1,0 +1,64 @@
+To migrate the `SnorocketProtegePluginInstance` class from using Log4j to SLF4J, you will need to make several changes because SLF4J does not support the dynamic addition of appenders like Log4j does. Instead, you should configure logging behavior through the underlying logging framework configuration (like Logback or Log4j2).
+
+Here are the steps and changes you need to make for the migration:
+
+1. **Remove Log4j Import**:
+   You'll need to replace the Log4j import with the SLF4J equivalent.
+   
+   Replace:
+   ```java
+   import org.apache.log4j.Logger;
+   ```
+   With:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. **Modify the Logger Instantiation**:
+   Change the way the logger is instantiated to use SLF4J's LoggerFactory.
+
+   Replace:
+   ```java
+   Logger.getLogger("au.csiro.snorocket.owlapi.SnorocketOWLReasoner").addAppender(ProtegeMessageAppender.INSTANCE);
+   ```
+   With:
+   ```java
+   private static final Logger logger = LoggerFactory.getLogger("au.csiro.snorocket.owlapi.SnorocketOWLReasoner");
+   ```
+
+3. **Remove the Appender Code**:
+   Since SLF4J does not support programmatically adding appenders, remove or modify the appender code. If you need to handle logging with a custom mechanism like a specific appender, this should be configured through the logging implementation you choose to use with SLF4J (like Logback).
+
+   Replace:
+   ```java
+   public void initialise() throws Exception {
+       Logger.getLogger("au.csiro.snorocket.owlapi.SnorocketOWLReasoner")
+               .addAppender(ProtegeMessageAppender.INSTANCE);
+   }
+   ```
+   With a suitable initialization if necessary, or you may opt to remove this method if it becomes redundant due to your logging configuration.
+
+4. **Configure Logging via Configuration File**:
+   If you are using Logback or another SLF4J-compatible system, set up your logging configurations (like appenders) in an XML or properties file. This is typically placed in the `resources` directory of your project.
+
+For example, a simple Logback configuration (`logback.xml`) might look like this:
+```xml
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="au.csiro.snorocket.owlapi.SnorocketOWLReasoner" level="debug">
+        <appender-ref ref="STDOUT" />
+    </logger>
+
+    <root level="error">
+        <appender-ref ref="STDOUT" />
+    </root>
+</configuration>
+```
+
+These steps will align your class with SLF4J's methodologies and prepare your codebase for more flexible and powerful logging configurations through external files rather than code-based appender manipulations.

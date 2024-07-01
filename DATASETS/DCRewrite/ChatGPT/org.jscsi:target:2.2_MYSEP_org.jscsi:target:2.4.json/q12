@@ -1,0 +1,40 @@
+To update the `ModeSenseStage` class to use SLF4J instead of Log4j, follow these steps:
+
+1. **Change the import statement**:
+   Replace the Log4j import with SLF4J imports.
+
+   Replace:
+   ```java
+   import org.apache.log4j.Logger;
+   ```
+   With:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. **Modify the logger instantiation**:
+   Update the instantiation of the logger object to use SLF4J's `LoggerFactory`.
+
+   Change:
+   ```java
+   private static final Logger LOGGER = Logger.getLogger(ModeSenseStage.class);
+   ```
+   To:
+   ```java
+   private static final Logger LOGGER = LoggerFactory.getLogger(ModeSenseStage.class);
+   ```
+
+3. **Review and adjust logging calls if necessary**:
+   SLF4J supports parameterized messages, which can improve performance by avoiding unnecessary computation of log message strings when the log level is not enabled. You might want to convert log messages to use this feature, especially where string concatenation is used.
+
+   For example:
+   ```java
+   LOGGER.debug("cdb.getAllocationLength() = " + cdb.getAllocationLength());
+   ```
+   Can be changed to:
+   ```java
+   LOGGER.debug("cdb.getAllocationLength() = {}", cdb.getAllocationLength());
+   ```
+
+These changes will make the class use SLF4J for logging. This shift aids performance optimization by deferring the computation of the log message only if the log level is enabled and enhances flexibility through easier logging framework switching.

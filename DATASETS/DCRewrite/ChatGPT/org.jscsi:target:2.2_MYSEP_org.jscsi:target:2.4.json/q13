@@ -1,0 +1,40 @@
+To migrate the `ReportLunsStage` class from Log4j to the SLF4J logging framework, you'll need to make the following adjustments:
+
+1. **Change the import statement**:
+   Replace the Log4j import with the appropriate SLF4J imports.
+
+   Replace:
+   ```java
+   import org.apache.log4j.Logger;
+   ```
+   With:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. **Modify the logger instantiation**:
+   Update the instantiation of the logger object to use SLF4J's `LoggerFactory`.
+
+   Change:
+   ```java
+   private static final Logger LOGGER = Logger.getLogger(ReportLunsStage.class);
+   ```
+   To:
+   ```java
+   private static final Logger LOGGER = LoggerFactory.getLogger(ReportLunsStage.class);
+   ```
+
+3. **Review and adjust logging calls if necessary**:
+   SLF4J supports parameterized messages, which helps in avoiding unnecessary string concatenation when the log level is not enabled. Modify the logging calls to use this feature for better performance.
+
+   For example, if there's a log statement like:
+   ```java
+   LOGGER.debug("selectReport = " + selectReport);
+   ```
+   You can change it to:
+   ```java
+   LOGGER.debug("selectReport = {}", selectReport);
+   ```
+
+These changes will ensure that the `ReportLunsStage` class uses SLF4J for logging, which is beneficial for performance and flexibility. SLF4J allows you to change the underlying logging framework if needed without changing the logging calls in your code.

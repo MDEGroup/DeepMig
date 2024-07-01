@@ -1,5 +1,11 @@
-You are a Java code assistant. Given this Java class: 
+To migrate the `GlobalListener` class from using Log4j to SLF4J, you'll need to update the imports and modify how the logger is instantiated. Here are the steps and the updated code:
 
+1. **Change the Logger Import**: Replace the import statement for Log4j with the one for SLF4J.
+2. **Update Logger Instantiation**: Modify the logger instantiation to use SLF4J's `LoggerFactory`.
+
+Here's the modified version of the class with the necessary changes:
+
+```java
 package com.llsfw.core.listener;
 
 import javax.servlet.ServletContextAttributeEvent;
@@ -14,18 +20,18 @@ import javax.servlet.http.HttpSessionAttributeListener;
 import javax.servlet.http.HttpSessionBindingEvent;
 import javax.servlet.http.HttpSessionEvent;
 import javax.servlet.http.HttpSessionListener;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
 public class GlobalListener implements ServletContextListener, ServletContextAttributeListener, HttpSessionListener, HttpSessionAttributeListener, ServletRequestListener, ServletRequestAttributeListener {
-  private static final Logger LOG = LogManager.getLogger();
+  private static final Logger LOG = LoggerFactory.getLogger(GlobalListener.class);
   
   private IGlobalListenerOp igo;
   
   public void contextInitialized(ServletContextEvent sce) {
     this.igo = (IGlobalListenerOp)WebApplicationContextUtils.getWebApplicationContext(sce.getServletContext()).getBean("globalListener", IGlobalListenerOp.class);
-    LOG.info("GlobalListenerOp+ this.igo);
+    LOG.info("GlobalListener initialized with IGlobalListenerOp");
     if (this.igo != null)
       this.igo.contextInitialized(sce); 
   }
@@ -33,6 +39,7 @@ public class GlobalListener implements ServletContextListener, ServletContextAtt
   public void contextDestroyed(ServletContextEvent sce) {
     if (this.igo != null)
       this.igo.contextDestroyed(sce); 
+    LOG.info("GlobalListener context destroyed");
   }
   
   public void attributeAdded(ServletRequestAttributeEvent srae) {
@@ -100,34 +107,5 @@ public class GlobalListener implements ServletContextListener, ServletContextAtt
       this.igo.attributeReplaced(scae); 
   }
 }
-
-
-Can you show me just the required modification to perform the migration from log4j to slf4j library please?
-
-To migrate the `GlobalListener` class from using Log4j to SLF4J, you need to make the following modifications:
-
-1. **Change the Logger import:**
-   Replace `org.apache.logging.log4j.LogManager` and `org.apache.logging.log4j.Logger` with `org.slf4j.Logger` and `org.slf4j.LoggerFactory`.
-
-2. **Change the Logger initialization:**
-   Replace `LogManager.getLogger()` with `LoggerFactory.getLogger(GlobalListener.class)`.
-
-### Modifications
-
-**Before (Log4j)**
-```java
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-private static final Logger LOG = LogManager.getLogger();
 ```
-
-**After (SLF4J)**
-```java
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-private static final Logger LOG = LoggerFactory.getLogger(GlobalListener.class);
-```
-
-These changes update the logging mechanism to use SLF4J, which provides a simple abstraction to various logging frameworks like Log4j, making it easier to switch between them without major code changes.
+This updated code uses SLF4J for logging, which will provide a more flexible approach to logging across various logging frameworks.

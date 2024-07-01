@@ -1,0 +1,42 @@
+To migrate the `TargetFullFeaturePhase` class from using Log4j to using SLF4J for logging, follow these steps:
+
+1. **Change the Import Statement**:
+   Replace the Log4j import with the corresponding SLF4J imports.
+
+   Replace:
+   ```java
+   import org.apache.log4j.Logger;
+   ```
+   With:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. **Modify Logger Initialization**:
+   Update the instantiation of the logger object to use SLF4J's `LoggerFactory`.
+
+   Change from:
+   ```java
+   private static final Logger LOGGER = Logger.getLogger(TargetFullFeaturePhase.class);
+   ```
+   Change to:
+   ```java
+   private static final Logger LOGGER = LoggerFactory.getLogger(TargetFullFeaturePhase.class);
+   ```
+
+3. **Adjust Logging Calls (if necessary)**:
+   If you are using logging calls that perform string concatenation, consider changing them to use parameterized messages, which is a feature of SLF4J that can improve performance by avoiding string concatenation when the log level is not enabled. For example:
+
+   Change from:
+   ```java
+   LOGGER.debug("scsiOpCode = " + scsiOpCode);
+   LOGGER.error("Unsupported SCSI OpCode 0x" + Integer.toHexString(parser.getCDB().get(0) & 255) + " in SCSI Command PDU.");
+   ```
+   Change to:
+   ```java
+   LOGGER.debug("scsiOpCode = {}", scsiOpCode);
+   LOGGER.error("Unsupported SCSI OpCode 0x{} in SCSI Command PDU.", Integer.toHexString(parser.getCDB().get(0) & 255));
+   ```
+
+These steps will effectively switch the class from using Log4j to using SLF4J, making it easier to manage logging dependencies and potentially improving performance due to parameterized logging.

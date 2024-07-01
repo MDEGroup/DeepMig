@@ -1,0 +1,42 @@
+To update the `MonotonicCollection` class from using Log4j to using SLF4J, follow these steps for migrating the logging framework:
+
+1. **Change Import Statements**:
+   Replace the import statement for Log4j with the appropriate SLF4J imports.
+
+   Change:
+   ```java
+   import org.apache.log4j.Logger;
+   ```
+   To:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. **Modify Logger Initialization**:
+   Update the instantiation of the logger object to use SLF4J's `LoggerFactory`.
+
+   Change from:
+   ```java
+   private static final Logger log = Logger.getLogger(MonotonicCollection.class);
+   ```
+   To:
+   ```java
+   private static final Logger log = LoggerFactory.getLogger(MonotonicCollection.class);
+   ```
+
+3. **Adjust Logging Calls if Necessary**:
+   If there are any logging calls that concatenate strings directly within the logging methods, modify them to use SLF4J's parameterized message capabilities. This helps to avoid unnecessary string concatenation when the log level is not enabled.
+
+   In your class:
+   ```java
+   if (log.isTraceEnabled() && this.count > 1024)
+       log.trace(hashCode() + "\t" + getClass().getSimpleName() + " resize to: " + newSize);
+   ```
+   Change to:
+   ```java
+   if (log.isTraceEnabled() && this.count > 1024)
+       log.trace("{}\t{} resize to: {}", hashCode(), getClass().getSimpleName(), newSize);
+   ```
+
+Implementing these steps will effectively migrate your logging from Log4j to SLF4J in the `MonotonicCollection` class, making your logging framework more flexible and potentially more performance-efficient with lazy evaluation of log messages.

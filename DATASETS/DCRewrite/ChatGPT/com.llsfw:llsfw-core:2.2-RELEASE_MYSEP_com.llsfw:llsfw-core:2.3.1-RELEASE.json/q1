@@ -1,216 +1,13 @@
-You are a Java code assistant. Given this Java class: 
+To migrate the `DynamicDataSource` class from using Log4j to SLF4J, you need to update the imports and modify how the logger is instantiated. Here's how you can do it:
 
-package com.llsfw.core.datasource;
+1. **Change the Logger Import**: Replace the import statement for Log4j with the one for SLF4J.
+2. **Update Logger Instantiation**: Modify the logger instantiation to use SLF4J's `LoggerFactory`.
 
-import com.llsfw.generator.model.standard.system.TtDynamicDataSource;
-import java.util.HashMap;
-import java.util.Map;
-import javax.sql.DataSource;
-import org.apache.commons.dbcp.BasicDataSource;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
-
-public class DynamicDataSource extends AbstractRoutingDataSource {
-  private static final Logger LOG = LogManager.getLogger();
-  
-  private String defaultDataSourceName;
-  
-  private static Map<Object, Object> dyanmictargetDataSources;
-  
-  private int maxActive;
-  
-  private int maxIdle;
-  
-  private int minIdle;
-  
-  private int maxWait;
-  
-  private long minEvictableIdleTimeMillis;
-  
-  private int removeAbandonedTimeout;
-  
-  private boolean removeAbandoned;
-  
-  private boolean testOnBorrow;
-  
-  private boolean testOnReturn;
-  
-  private boolean testWhileIdle;
-  
-  private long timeBetweenEvictionRunsMillis;
-  
-  private int numTestsPerEvictionRun;
-  
-  private static final ThreadLocal<DataSource> currentDataSource = new ThreadLocal<>();
-  
-  public static DataSource getCurrentDataSource() {
-    return currentDataSource.get();
-  }
-  
-  private static void setCurrentDataSource(String dataSourceName) {
-    Object dataSource = dyanmictargetDataSources.get(dataSourceName);
-    if (dataSource != null) {
-      currentDataSource.set((DataSource)dataSource);
-    } else {
-      currentDataSource.set(null);
-    } 
-  }
-  
-  static {
-    if (null == dyanmictargetDataSources) {
-      dyanmictargetDataSources = new HashMap<>();
-      LOG.debug("It has been initialized dynamic targetDataSources to HashMap");
-    } 
-  }
-  
-  public void setDefaultDataSourceName(String defaultDataSourceName) {
-    this.defaultDataSourceName = defaultDataSourceName;
-  }
-  
-  public void setMaxActive(int maxActive) {
-    this.maxActive = maxActive;
-  }
-  
-  public void setMaxIdle(int maxIdle) {
-    this.maxIdle = maxIdle;
-  }
-  
-  public void setMinIdle(int minIdle) {
-    this.minIdle = minIdle;
-  }
-  
-  public void setMaxWait(int maxWait) {
-    this.maxWait = maxWait;
-  }
-  
-  public void setMinEvictableIdleTimeMillis(long minEvictableIdleTimeMillis) {
-    this.minEvictableIdleTimeMillis = minEvictableIdleTimeMillis;
-  }
-  
-  public void setRemoveAbandonedTimeout(int removeAbandonedTimeout) {
-    this.removeAbandonedTimeout = removeAbandonedTimeout;
-  }
-  
-  public void setRemoveAbandoned(boolean removeAbandoned) {
-    this.removeAbandoned = removeAbandoned;
-  }
-  
-  public void setTestOnBorrow(boolean testOnBorrow) {
-    this.testOnBorrow = testOnBorrow;
-  }
-  
-  public void setTestOnReturn(boolean testOnReturn) {
-    this.testOnReturn = testOnReturn;
-  }
-  
-  public void setTestWhileIdle(boolean testWhileIdle) {
-    this.testWhileIdle = testWhileIdle;
-  }
-  
-  public void setTimeBetweenEvictionRunsMillis(long timeBetweenEvictionRunsMillis) {
-    this.timeBetweenEvictionRunsMillis = timeBetweenEvictionRunsMillis;
-  }
-  
-  public void setNumTestsPerEvictionRun(int numTestsPerEvictionRun) {
-    this.numTestsPerEvictionRun = numTestsPerEvictionRun;
-  }
-  
-  protected Object determineCurrentLookupKey() {
-    TtDynamicDataSource dds = DBContextHolder.getDBType();
-    String dataSourceName = this.defaultDataSourceName;
-    if (dds != null) {
-      LOG.debug("Start switching data source : " + dds.getDbsName());
-      selectDataSource(dds);
-      dataSourceName = dds.getDbsName();
-    } else {
-      LOG.debug("Incoming dataSourceName empty, switching to the default database : " + dataSourceName);
-    } 
-    LOG.debug("Switch to the Data Source : " + dataSourceName);
-    setCurrentDataSource(dataSourceName);
-    LOG.debug("Sets the current data source : " + dataSourceName);
-    DBContextHolder.clearDBType();
-    LOG.debug("Cleanup DBContextHolder of ThreadLocal");
-    return dataSourceName;
-  }
-  
-  private void selectDataSource(TtDynamicDataSource dds) {
-    Object obj = dyanmictargetDataSources.get(dds.getDbsName());
-    if (obj != null) {
-      LOG.debug(dds.getDbsName() + " Already in the cache can be used directly");
-      return;
-    } 
-    LOG.debug(dds.getDbsName() + " Not in the cache, ready to create a data source object");
-    DataSource dataSource = getDataSource(dds);
-    if (null != dataSource)
-      setDataSource(dds, dataSource); 
-    LOG.debug(dds.getDbsName() + " Data Source has been created and the cache");
-  }
-  
-  private DataSource getDataSource(TtDynamicDataSource dds) {
-    BasicDataSource dataSource = new BasicDataSource();
-    dataSource.setUrl(dds.getDbsUrl());
-    dataSource.setUsername(dds.getDbsUserName());
-    dataSource.setPassword(dds.getDbsPassword());
-    dataSource.setDriverClassName(dds.getDbsDriverClass());
-    dataSource.setMaxActive(this.maxActive);
-    dataSource.setMaxIdle(this.maxIdle);
-    dataSource.setMinIdle(this.minIdle);
-    dataSource.setMaxWait(this.maxWait);
-    dataSource.setMinEvictableIdleTimeMillis(this.minEvictableIdleTimeMillis);
-    dataSource.setRemoveAbandonedTimeout(this.removeAbandonedTimeout);
-    dataSource.setRemoveAbandoned(this.removeAbandoned);
-    dataSource.setTestOnBorrow(this.testOnBorrow);
-    dataSource.setTestOnReturn(this.testOnReturn);
-    dataSource.setTestWhileIdle(this.testWhileIdle);
-    dataSource.setTimeBetweenEvictionRunsMillis(this.timeBetweenEvictionRunsMillis);
-    dataSource.setNumTestsPerEvictionRun(this.numTestsPerEvictionRun);
-    LOG.debug("DataSource : " + dds.getDbsName() + " Created");
-    return (DataSource)dataSource;
-  }
-  
-  private void setDataSource(TtDynamicDataSource dds, DataSource dataSource) {
-    dyanmictargetDataSources.put(dds.getDbsName(), dataSource);
-    setTargetDataSources(dyanmictargetDataSources);
-    afterPropertiesSet();
-    DBContextHolder.setDBType(dds);
-  }
-}
-
-
-write the needed code to perform the migration from log4j to slf4j library. Highlight the code changes needed to adapt the file please.
-
-To perform the migration from log4j to SLF4J in your Java class `DynamicDataSource`, you need to replace the log4j imports and logger initialization with their SLF4J equivalents. Here's what needs to be changed:
-
-1. **Change the Logger import:**
-   Replace `org.apache.logging.log4j.LogManager` and `org.apache.logging.log4j.Logger` with `org.slf4j.Logger` and `org.slf4j.LoggerFactory`.
-
-2. **Change the Logger initialization:**
-   Replace `LogManager.getLogger()` with `LoggerFactory.getLogger(DynamicDataSource.class)`.
-
-### Current log4j Setup
-```java
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-private static final Logger LOG = LogManager.getLogger();
-```
-
-### Required Changes for SLF4J
-```java
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-private static final Logger LOG = LoggerFactory.getLogger(DynamicDataSource.class);
-```
-
-### Full Revised Class for SLF4J
-Here's your class after applying the necessary changes to use SLF4J:
+Here's the modified version of the class with the necessary changes:
 
 ```java
-package com.llsfw.core.datasource;
+package com.omertron.fanarttvapi.tools;
 
-import com.llsfw.generator.model.standard.system.TtDynamicDataSource;
 import java.util.HashMap;
 import java.util.Map;
 import javax.sql.DataSource;
@@ -221,379 +18,69 @@ import org.springframework.jdbc.datasource.lookup.AbstractRoutingDataSource;
 
 public class DynamicDataSource extends AbstractRoutingDataSource {
   private static final Logger LOG = LoggerFactory.getLogger(DynamicDataSource.class);
-
+  
   private String defaultDataSourceName;
-
+  
   private static Map<Object, Object> dyanmictargetDataSources;
-
+  
   private int maxActive;
-
+  
   private int maxIdle;
-
+  
   private int minIdle;
-
+  
   private int maxWait;
-
+  
   private long minEvictableIdleTimeMillis;
-
+  
   private int removeAbandonedTimeout;
-
+  
   private boolean removeAbandoned;
-
+  
   private boolean testOnBorrow;
-
+  
   private boolean testOnReturn;
-
+  
   private boolean testWhileIdle;
-
+  
   private long timeBetweenEvictionRunsMillis;
-
+  
   private int numTestsPerEvictionRun;
-
+  
   private static final ThreadLocal<DataSource> currentDataSource = new ThreadLocal<>();
-
+  
   public static DataSource getCurrentDataSource() {
     return currentDataSource.get();
   }
+  
+  private static void setCurrentDataSource(String dataSourceName)
 
-  private static void setCurrentDataSource(String dataSourceName) {
     Object dataSource = dyanmictargetDataSources.get(dataSourceName);
     if (dataSource != null) {
       currentDataSource.set((DataSource)dataSource);
     } else {
       currentDataSource.set(null);
-    }
+    } 
   }
-
+  
   static {
     if (null == dyanmictargetDataSources) {
       dyanmictargetDataSources = new HashMap<>();
       LOG.debug("It has been initialized dynamic targetDataSources to HashMap");
-    }
+    } 
   }
-
+  
   public void setDefaultDataSourceName(String defaultDataSourceName) {
     this.defaultDataSourceName = defaultDataSourceName;
   }
-
+  
   public void setMaxActive(int maxActive) {
     this.maxActive = maxActive;
   }
-
+  
   public void setMaxIdle(int maxIdle) {
     this.maxIdle = maxIdle;
   }
-
+  
   public void setMinIdle(int minIdle) {
-    this.minIdle = minIdle;
-  }
-
-  public void setMaxWait(int maxWait) {
-    this.maxWait = maxWait;
-  }
-
-  public void setMinEvictableIdleTimeMillis(long minEvictableIdleTimeMillis) {
-    this.minEvictableIdleTimeMillis = minEvictableIdleTimeMillis;
-  }
-
-  public void setRemoveAbandonedTimeout(int removeAbandonedTimeout) {
-    this.removeAbandonedTimeout = removeAbandonedTimeout;
-  }
-
-  public void setRemoveAbandoned(boolean removeAbandoned) {
-    this.removeAbandoned = removeAbandoned;
-  }
-
-  public void setTestOnBorrow(boolean testOnBorrow) {
-    this.testOnBorrow = testOnBorrow;
-  }
-
-  public void setTestOnReturn(boolean testOnReturn) {
-    this.testOnReturn = testOnReturn;
-  }
-
-  public void setTestWhileIdle(boolean testWhileIdle) {
-    this.testWhileIdle = testWhileIdle;
-  }
-
-  public void setTimeBetweenEvictionRunsMillis(long timeBetweenEvictionRunsMillis) {
-    this.timeBetweenEvictionRunsMillis = timeBetweenEvictionRunsMillis;
-  }
-
-  public void setNumTestsPerEvictionRun(int numTestsPerEvictionRun) {
-options(runScript(runScript));
-    strategy.configureTemplateBuilder(clusterSpec, templateBuilder);
-    return templateBuilder.build();
-
-  }
-
-  private static Statement addUserAndAuthorizeSudo(String user,
-      String publicKey, String privateKey, Statement statement) {
-    return new InitBuilder("setup-" + user,// name of the script
-        "/tmp",// working directory
-
-
-        "/tmp/logs",// location of stdout.log and stderr.log
-        ImmutableMap.of("newUser", user, "defaultHome", "/home/users"), // variables
-        ImmutableList.<Statement> of(
-            createUserWithPublicAndPrivateKey(user, publicKey, privateKey),
-            makeSudoersOnlyPermitting(user),
-            statement));
-  }
-
-  // must be used inside InitBuilder, as this sets the shell variables used in this statement
-  static Statement createUserWithPublicAndPrivateKey(String username,
-      String publicKey, String privateKey) {
-    // note directory must be created first
-    return newStatementList(interpret("mkdir -p $DEFAULT_HOME/$NEW_USER/.ssh",
-        "useradd --shell /bin/bash -d $DEFAULT_HOME/$NEW_USER $NEW_USER\n"), appendFile(
-        "$DEFAULT_HOME/$NEW_USER/.ssh/authorized_keys", Splitter.on('\n').split(publicKey)),
-        appendFile(
-            "$DEFAULT_HOME/$NEW_USER/.ssh/id_rsa", Splitter.on('\n').split(privateKey)),
-        interpret("chmod 400 $DEFAULT_HOME/$NEW_USER/.ssh/*",
-            "chown -R $NEW_USER $DEFAULT_HOME/$NEW_USER\n"));
-  }
-
-  // must be used inside InitBuilder, as this sets the shell variables used in this statement
-  static Statement makeSudoersOnlyPermitting(String username) {
-    return newStatementList(interpret("rm /etc/sudoers", "touch /etc/sudoers", "chmod 0440 /etc/sudoers",
-        "chown root /etc/sudoers\n"), appendFile("/etc/sudoers", ImmutableSet.of("root ALL = (ALL) ALL",
-        "%adm ALL = (ALL) ALL", username + " ALL = (ALL) NOPASSWD: ALL")));
-  }
-
-  private Set<Instance> getInstances(final Set<String> roles,
-      Set<? extends NodeMetadata> nodes) {
-    return Sets.newLinkedHashSet(Collections2.transform(Sets.newLinkedHashSet(nodes),
-        new Function<NodeMetadata, Instance>() {
-      @Override
-      public Instance apply(NodeMetadata node) {
-        return new Instance(node.getCredentials(), roles,
-            Iterables.get(node.getPublicAddresses(), 0),
-            Iterables.get(node.getPrivateAddresses(), 0),
-            node.getId(), node);
-      }
-    }));
-  }
-
-  class StartupProcess implements Callable<Set<? extends NodeMetadata>> {
-
-    final private String clusterName;
-    final private int numberOfNodes;
-    final private int minNumberOfNodes;
-    final private int maxStartupRetries;
-    final private Set<String> roles;
-    final private ComputeService computeService;
-    final private Template template;
-    final private ExecutorService executorService;
-    final private NodeStarterFactory starterFactory;
-
-    private Set<NodeMetadata> successfulNodes = Sets.newLinkedHashSet();
-    private Map<NodeMetadata, Throwable> lostNodes = Maps.newHashMap();
-
-    private Future<Set<NodeMetadata>> nodesFuture;
-
-    StartupProcess(final String clusterName, final int numberOfNodes,
-        final int minNumberOfNodes, final int maxStartupRetries, final Set<String> roles,
-        final ComputeService computeService, final Template template,
-        final ExecutorService executorService, final NodeStarterFactory starterFactory) {
-      this.clusterName = clusterName;
-      this.numberOfNodes = numberOfNodes;
-      this.minNumberOfNodes = minNumberOfNodes;
-      this.maxStartupRetries = maxStartupRetries;
-      this.roles = roles;
-      this.computeService = computeService;
-      this.template = template;
-      this.executorService = executorService;
-      this.starterFactory = starterFactory.
-    }
-
-    @Override
-    public Set<? extends NodeMetadata> call() throws Exception {
-      int retryCount = 0;
-      boolean retryRequired;
-      try {
-      do {
-          runNodesWithTag();
-          waitForOutcomes();
-          retryRequired = !isDone();
-
-          if (++retryCount > maxStartupRetries) {
-            break; // no more retries
-          }
-        } while (retryRequired);
-
-        if (retryRequired) {// if still required, we cannot use the cluster
-          // in this case of failed cluster startup, cleaning of the nodes are postponed
-          throw new IOException("Too many instance failed while bootstrapping! "
-              + successfulNodes.size() + " successfully started instances while " + lostNodes.size() + " instances failed");
-        }
-      } finally {
-        cleanupFailedNodes();
-      }
-      return successfulNodes;
-    }
-
-    String getClusterName() {
-      return clusterName;
-    }
-
-    Template getTemplate() {
-      return template;
-    }
-
-    Set<NodeMetadata> getSuccessfulNodes() {
-      return successfulNodes;
-    }
-
-    Map<NodeMetadata, Throwable> getNodeErrors() {
-      return lostNodes;
-    }
-
-    boolean isDone() {
-      return successfulNodes.size() >= minNumberOfNodes;
-    }
-
-    void runNodes
-
-WithTag() {
-      final int num = numberOfNodes - successfulNodes.size.
-      this.nodesFuture = executorService.submit(starterFactory.create(
-          computeService, clusterName, roles, num, template));
-    }
-
-    void waitForOutcomes() throws InterruptedException {
-      try {
-        Set<? extends NodeMetadata> nodes = nodesFuture.get();
-        successfulNodes.addAll(nodes);
-      } catch (ExecutionException e) {
-        // checking RunNodesException and collect the outcome
-        Throwable th = e.getCause();
-        if (th instanceof RunNodesException) {
-          RunNodesException rnex = (RunNodesException) th;
-          successfulNodes.addAll(rnex.getSuccessfulNodes());
-          lostNodes.putAll(rnex.getNodeErrors());
-        } else {
-          LOG.error("Unexpected error while starting " + numberOfNodes + " nodes, minimum "
-              + minNumberOfNodes + " nodes for " + roles + " of cluster " + clusterFind out more.
-    }
-
-    void cleanupFailedNodes() throws InterruptedException {
-      if (lostNodes.size() > 0) {
-        // parallel destroy of failed nodes
-        Set<Future<NodeMetadata>> deletingNodeFutures = Sets.newLinkedHashSet();
-        Iterator<?> it = lostNodes.keySet().iterator();
-        while (it.hasNext()) {
-while (results.hasNext()) {
-          try {
-            results.next().get();
-          } catch (ExecutionException e) {
-            LOG.warn("Error while destroying failed node:", e);
-          }
-        }
-      }
-    }
-  }
-}
-
-class NodeStarterFactory {
-  NodeStarter create(final ComputeService computeService, final String clusterName,
-      final Set<String> roles, final int num, final Template template) {
-    return new NodeStarter(computeService, clusterName, roles, num, template);
-  }
-}
-
-class NodeStarter implements Callable<Set<NodeMetadata>> {
-
-  private static final Logger LOG =
-    LoggerFactory.getLogger(NodeStarter.class);
-
-  final private ComputeService computeService;
-  final private String clusterName;
-  final private Set<String> roles;
-  final private int num;
-  final private Template template;
-
-  public NodeStarter(final ComputeService computeService, the num;
-    }
-
-    void waitForOutcomes() throws InterruptedException {
-      try {
-        Set<? extends NodeMetadata> nodes = nodesFuture.get();
-        successfulNodes.addAll(nodes);
-      } catch (ExecutionException e) {
-        // checking RunNodesException and collect the outcome
-        Throwable th = e.getCause();
-        if (th instanceof RunNodesException) {
-          RunNodesException rnex = (RunNodesException) th;
-          successfulNodes.addAll(rnex.getSuccessfulNodes());
-          lostNodes.putAll(rnex.getNodeErrors());
-        } else {
-          LOG.error("Unexpected error while starting " + numberOfNodes + " nodes, minimum "
-              + minNumberOfNodes + " nodes for " + roles + " of cluster " + clusterName, e);
-        }
-      }
-    }
-
-    void cleanupFailedNodes() throws InterruptedException {
-      if (lostNodes.size() > 0) {
-        // parallel destroy of failed nodes
-        Set<Future<NodeMetadata>> deletingNodeFutures = Sets.newLinkedHashSet();
-        Iterator<?> it = lostNodes.keySet().iterator();
-        while (it.hasNext()) {
-          final NodeMetadata badNode = (NodeMetadata) it.next();
-          deletingNodeFutures.add(executorService.submit(
-              new Callable<NodeMetadata>() {
-                public NodeMetadata call() throws Exception {
-                  final String nodeId = badNode.getId();
-                  LOG.info("Deleting failed node node {}", nodeId);
-                  computeService.destroyNode(nodeId);
-                  LOG.info("Node deleted: {}", nodeId);
-                  return badNode;
-                }
-              }
-            ));
-        }
-        Iterator<Future<NodeMetadata>> results = deletingNodeFutures.iterator();
-        while (results.hasNext()) {
-          try {
-            results.next().get();
-          } catch (ExecutionException e) {
-            LOG.warn("Error while destroying failed node:", e);
-          }
-        }
-      }
-    }
-  }
-}
-
-class NodeStarterFactory {
-  NodeStarter create(final ComputeService computeService, final String clusterName,
-      final Set<String> roles, final int num, final Template template) {
- # Finish writing here.
-   The code you posted is long and detailed. To perform the migration from Log4j to SLF4J, you'll need to modify the logger imports and initialization:
-
-1. **Change the Logger import:**
-   Replace `org.apache.logging.log4j.LogManager` and `org.apache.logging.log4j.Logger` with `org.slf4j.Logger` and `org.slf4j.LoggerFactory`.
-
-2. **Change the Logger initialization:**
-   Replace `LogManager.getLogger()` with `LoggerFactory.getLogger(DynamicDataSource.class)`.
-
-### Current log4j Setup
-```java
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-private static final Logger LOG = LogManager.getLogger();
-```
-
-### Required Changes for
-
- SLF4J
-```java
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-private static final Logger LOG = LoggerFactory.getLogger(DynamicDataSource.class);
-```
-
-Apply these changes throughout the class to complete the migration to SLF4J.
+    this.min

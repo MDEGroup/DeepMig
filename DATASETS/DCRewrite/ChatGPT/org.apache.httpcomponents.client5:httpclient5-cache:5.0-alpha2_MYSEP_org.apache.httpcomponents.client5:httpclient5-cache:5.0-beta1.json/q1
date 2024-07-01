@@ -1,0 +1,31 @@
+To migrate the `CacheInvalidator` class from using Log4j to SLF4J, you will need to modify the logger initialization and update the import statements. Here’s how you can do it:
+
+1. **Change the Logger Import**:
+   Replace the Log4j import with the SLF4J equivalent.
+
+   Replace:
+   ```java
+   import org.apache.logging.log4j.LogManager;
+   import org.apache.logging.log4j.Logger;
+   ```
+   With:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. **Update Logger Initialization**:
+   Adjust how the logger is instantiated to use SLF4J's LoggerFactory.
+
+   Replace:
+   ```java
+   private final Logger log = LogManager.getLogger(getClass());
+   ```
+   With:
+   ```java
+   private final Logger log = LoggerFactory.getLogger(getClass());
+   ```
+
+These changes replace the direct Log4j logging calls with SLF4J's logging facade, which will decouple your application's logging framework from the backend logger implementation. This approach also enables easy switching between different logging frameworks if needed in the future.
+
+Ensure you have the SLF4J API and an appropriate binding corresponding to the logging implementation you intend to use (like SLF4J-Log4j2 binding, SLF4J-Logback, etc.) included in your project dependencies.

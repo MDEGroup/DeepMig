@@ -1,0 +1,66 @@
+To migrate the `WriteStage` class from using Log4j to SLF4J, you need to make the following changes:
+
+1. **Change the import statement**:
+   Replace the Log4j import statement with the SLF4J import statement.
+
+   ```java
+   import org.apache.log4j.Logger;
+   ```
+   Change to:
+   ```java
+   import org.slf4j.Logger;
+   import org.slf4j.LoggerFactory;
+   ```
+
+2. **Modify the logger instantiation**:
+   Update how the logger is instantiated to use SLF4J's `LoggerFactory`.
+
+   ```java
+   private static final Logger LOGGER = Logger.getLogger(WriteStage.class);
+   ```
+   Should be updated to:
+   ```java
+   private static final Logger LOGGER = LoggerFactory.getLogger(WriteStage.class);
+   ```
+
+3. **Update debug logging checks and method calls**:
+   If your logging checks (such as `if (LOGGER.isDebugEnabled())`) are being used to avoid complex string concatenations, you can simplify your logging statements by utilizing SLF4J's parameterized logging feature, which checks the log level internally before evaluating the parameters.
+
+   Change:
+   ```java
+   if (LOGGER.isDebugEnabled()) {
+       LOGGER.debug("immediateData = " + immediateData);
+       LOGGER.debug("maxRecvDataSegmentLength = " + maxRecvDataSegmentLength);
+   }
+   ```
+   To:
+   ```java
+   LOGGER.debug("immediateData = {}", immediateData);
+   LOGGER.debug("maxRecvDataSegmentLength = {}", maxRecvDataSegmentLength);
+   ```
+
+   Similarly, replace other debug logging conditions:
+   ```java
+   if (LOGGER.isDebugEnabled())
+       LOGGER.debug("Entering WRITE STAGE");
+   ```
+   With:
+   ```java
+   LOGGER.debug("Entering WRITE STAGE");
+   ```
+
+4. **Update error logging**:
+   Modify error logging statements to use parameterized messages if needed. However, if you are simply logging a message, no change is necessary other than the import statement and logger instantiation.
+
+   For instance:
+   ```java
+   LOGGER.error("illegal field in Write CDB");
+   LOGGER.error("CDB:\n" + Debug.byteBufferToString(parser.getCDB()));
+   ```
+   Can be left as is, or if you are combining multiple elements into a message frequently, consider using parameterized logging for consistency and performance:
+
+   ```java
+   LOGGER.error("CDB:\n{}", Debug.byteBufferToString(parser.getCDB()));
+   ```
+
+These changes ensure that your class uses SLF4J for logging, which can help with easier maintenance of logging frameworks and performance improvements due to less computational overhead when logging is disabled at certain levels.
