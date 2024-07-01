@@ -1,0 +1,77 @@
+To migrate from Log4j to SLF4J, you need to update the import statements, logger initialization, and logging method calls. Below are the changes highlighted in the given class:
+
+java
+Copia codice
+package ca.carleton.gcrc.contributions;
+
+import java.util.HashMap;
+import java.util.Map;
+import javax.servlet.ServletContext;
+// Update import statement to use SLF4J
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.cometd.Bayeux;
+import org.cometd.Channel;
+import org.cometd.Client;
+
+public class ContributionCometImpl implements ContributionComet {
+  // Update logger initialization to use SLF4J
+  // protected final Logger logger = Logger.getLogger(getClass());
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private ServletContext servletContext;
+  
+  private Bayeux bayeux;
+  
+  private Channel channel;
+  
+  private Client client;
+  
+  private int messageId = 0;
+  
+  public ContributionCometImpl(ServletContext servletContext) {
+    this.servletContext = servletContext;
+    this.bayeux = (Bayeux)this.servletContext.getAttribute("org.cometd.bayeux");
+    this.channel = this.bayeux.getChannel("/contribution", true);
+    this.client = this.bayeux.newClient("server_user");
+    // Update logging method call to use SLF4J
+    // this.logger.info(getClass().getName() + " configured");
+    this.logger.info("{} configured", getClass().getName());
+  }
+  
+  public synchronized void reportNewContribution(String placeId, String contributionId) {
+    Map<String, Object> message = new HashMap<String, Object>();
+    message.put("action", "add");
+    message.put("id", contributionId);
+    message.put("place_id", placeId);
+    this.channel.publish(this.client, message, "" + this.messageId);
+    this.messageId++;
+  }
+  
+  public synchronized void reportDeletedContribution(String placeId, String contributionId) {
+    Map<String, Object> message = new HashMap<String, Object>();
+    message.put("action", "delete");
+    message.put("id", contributionId);
+    message.put("place_id", placeId);
+    this.channel.publish(this.client, message, "" + this.messageId);
+    this.messageId++;
+  }
+}
+Summary of Changes:
+Import Statements:
+
+Replace import org.apache.log4j.Logger; with import org.slf4j.Logger; and import org.slf4j.LoggerFactory;.
+Logger Initialization:
+
+Replace protected final Logger logger = Logger.getLogger(getClass()); with protected final Logger logger = LoggerFactory.getLogger(getClass());.
+Logging Method Calls:
+
+Update logging method calls to use SLF4J. For example, this.logger.info(getClass().getName() + " configured"); is changed to this.logger.info("{} configured", getClass().getName());.
+These changes will migrate the logging from Log4j to SLF4J.
+
+
+
+
+
+

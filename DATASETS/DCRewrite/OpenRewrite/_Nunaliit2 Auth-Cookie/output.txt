@@ -5,6 +5,7 @@
 [WARNING]                 org.openrewrite.maven.RemoveDependency: {groupId=log4j, artifactId=log4j}
 [WARNING]                 org.openrewrite.maven.AddDependency: {groupId=org.apache.logging.log4j, artifactId=log4j-api, version=latest.release, onlyIfUsing=org.apache.logging.log4j.*}
 [WARNING]                 org.openrewrite.maven.AddDependency: {groupId=org.apache.logging.log4j, artifactId=log4j-core, version=latest.release, onlyIfUsing=org.apache.logging.log4j.*}
+
 [WARNING] Changes have been made to src/main/java/ca/carleton/gcrc/auth/cookie/AuthFilter.java by:
 [WARNING]     org.openrewrite.java.logging.slf4j.Log4jToSlf4j
 [WARNING]         org.openrewrite.java.logging.slf4j.Log4j1ToSlf4j1
@@ -16,6 +17,7 @@
 [WARNING]             org.openrewrite.java.logging.slf4j.Log4j2ToSlf4j1
 [WARNING]                 org.openrewrite.java.ChangeType: {oldFullyQualifiedTypeName=org.apache.logging.log4j.LogManager, newFullyQualifiedTypeName=org.slf4j.LoggerFactory}
 [WARNING]                 org.openrewrite.java.ChangeType: {oldFullyQualifiedTypeName=org.apache.logging.log4j.Logger, newFullyQualifiedTypeName=org.slf4j.Logger}
+
 [WARNING] Changes have been made to src/main/java/ca/carleton/gcrc/auth/cookie/AuthServlet.java by:
 [WARNING]     org.openrewrite.java.logging.slf4j.Log4jToSlf4j
 [WARNING]         org.openrewrite.java.logging.slf4j.Log4j1ToSlf4j1
