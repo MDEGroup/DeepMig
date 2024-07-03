@@ -1,0 +1,87 @@
+To convert the `MultimediaConverterImpl` class from using the log4j library to slf4j, you will need to modify the import statements, update the logger initialization, and ensure the logging statements conform to slf4j's usage patterns. Here’s a detailed step-by-step on how to make these modifications:
+
+### 1. Modify Import Statements
+Change from log4j to slf4j libraries.
+
+**Original:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**Modified:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Change Logger Initialization
+Switch from log4j’s Logger to slf4j’s LoggerFactory to initialize the logger.
+
+**Original:**
+```java
+protected final Logger logger = Logger.getLogger(getClass());
+```
+
+**Modified:**
+```java
+protected final Logger logger = LoggerFactory.getLogger(getClass());
+```
+
+### 3. Review and Update Logging Statements
+Slf4j supports the `{}` syntax for message formatting which is recommended to use instead of string concatenation.
+
+**Original:**
+There are no explicit logging statements in the provided class segment, but if you encounter any logging statements such as:
+```java
+logger.error("Error message: " + variable);
+```
+
+**Modified:**
+They should be converted to:
+```java
+logger.error("Error message: {}", variable);
+```
+
+Here is the adapted class segment using slf4j:
+
+```java
+package ca.carleton.gcrc.olkit.multimedia.converter.impl;
+
+import ca.carleton.gcrc.olkit.multimedia.converter.MultimediaConversionProgress;
+import ca.carleton.gcrc.olkit.multimedia.converter.MultimediaConversionRequest;
+import ca.carleton.gcrc.olkit.multimedia.converter.MultimediaConversionThreshold;
+import ca.carleton.gcrc.olkit.multimedia.converter.MultimediaConverter;
+import ca.carleton.gcrc.olkit.multimedia.converter.threshold.DefaultThresholdAudio;
+import ca.carleton.gcrc.olkit.multimedia.converter.threshold.DefaultThresholdImage;
+import ca.carleton.gcrc.olkit.multimedia.converter.threshold.DefaultThresholdVideo;
+import ca.carleton.gcrc.olkit.multimedia.ffmpeg.FFmpeg;
+import ca.carleton.gcrc.olkit.multimedia.ffmpeg.FFmpegMediaInfo;
+import ca.carleton.gcrc.olkit.multimedia.ffmpeg.FFmpegProcessor;
+import ca.carleton.gcrc.olkit.multimedia.imageMagick.ImageInfo;
+import ca.carleton.gcrc.olkit.multimedia.imageMagick.ImageMagick;
+import ca.carleton.gcrc.olkit.multimedia.imageMagick.ImageMagickInfo;
+import ca.carleton.gcrc.olkit.multimedia.imageMagick.ImageMagickProcessor;
+import java.io.File;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class MultimediaConverterImpl implements MultimediaConverter {
+    public static int IMAGE_MAX_WIDTH = 1000;
+    public static int IMAGE_MAX_HEIGHT = 1000;
+    public static int IMAGE_THUMB_HEIGHT = 350;
+    public static int IMAGE_THUMB_WIDTH = 350;
+    public static int VIDEO_THUMB_HEIGHT = 240;
+    public static int VIDEO_THUMB_WIDTH = 320;
+
+    public static MultimediaConversionThreshold imageConversionThreshold = new DefaultThresholdImage();
+    public static MultimediaConversionThreshold audioConversionThreshold = new DefaultThresholdAudio();
+    public static MultimediaConversionThreshold videoConversionThreshold = new DefaultThresholdVideo();
+
+    protected final Logger logger = LoggerFactory.getLogger(getClass());
+
+    // Method implementations remain the same, assuming no additional logging statements to convert.
+    ...
+}
+```
+
+In this class adaptation, slf4j is now used for logging, allowing for flexible and efficient message formatting. Any existing log statements within the class should be converted to use slf4j syntax, as described. If there are specific parts of the class where detailed logging is implemented, those would need to be reviewed individually to ensure compatibility and optimal usage of slfryj's capabilities.

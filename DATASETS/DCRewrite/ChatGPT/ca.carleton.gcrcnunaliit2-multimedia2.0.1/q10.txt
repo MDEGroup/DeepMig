@@ -1,0 +1,55 @@
+To migrate the `ImageMagickProcessorDefault` class from using the log4j library to slf4j, follow these steps:
+
+### 1. Modify Import Statements
+Replace the log4j import with slf4j imports.
+
+**From:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**To:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Change Logger Initialization
+Update the logger initialization to use `LoggerFactory` from slf4j.
+
+**From:**
+```java
+protected final Logger logger = Logger.getLogger(getClass());
+```
+
+**To:**
+```java
+protected final Logger logger = LoggerFactory.getLogger(getClass());
+```
+
+### 3. Update Logging Methods
+Adjust the logging statements to use slf4j's logging format with `{}` placeholders for variables.
+
+**Change debug logs:**
+From:
+```java
+this.logger.debug(command);
+```
+To:
+```java
+this.logger.debug("Command executed: {}", command);
+```
+
+**Change error logs:**
+From:
+```java
+this.logger.error("Error while resizing image: " + command, e);
+```
+To:
+```java
+this.logger.error("Error while resizing image: {}", command, e);
+```
+
+These adjustments ensure you're using slf4j's more efficient string handling and maintain consistency in how exceptions are logged across different logging frameworks. The use of placeholders (`{}`) avoids unnecessary string concatenation before the method is called, which is especially beneficial if the logging level is such that the message would not be logged. 
+
+This migration will make the code cleaner and more maintainable, aligning with modern Java practices and potentially easing integration with other systems and frameworks that use slf4j.

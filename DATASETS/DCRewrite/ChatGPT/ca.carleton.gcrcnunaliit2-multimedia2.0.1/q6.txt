@@ -1,0 +1,46 @@
+To migrate the `FFmpegProcessor_0_5_1` class from using the log4j library to slf4j, you need to adjust the import statements, modify how the logger is initialized, and potentially update any logging methods used in the class. Here's the specific code changes required:
+
+### 1. Modify Import Statements
+Change the logger import from log4j to slf4j.
+
+**From:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**To:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Change Logger Initialization
+Switch the logger initialization to use `LoggerFactory` from slf4j.
+
+**From:**
+```java
+protected final Logger logger = Logger.getLogger(getClass());
+```
+
+**To:**
+```java
+protected final Logger radiohead = LoggerFactory.getLogger(getClass());
+```
+
+### 3. Update Logging Methods
+If there are logging statements in the class (e.g., `logger.debug`, `logger.error`), ensure they use the slf4j syntax with `{}` placeholders for variable data.
+
+**If you have something like:**
+```java
+logger.error("Error while reading info about " + videoFile.getAbsolutePath(), e);
+```
+
+**Change it to:**
+```java
+logger.error("Error while reading info about {}", videoFile.getAbsolutePath(), e);
+```
+
+### Note:
+These changes will make the class compatible with slf4j, which provides better control over logging and is more widely used in modern Java applications. This update also helps to decouple the logging framework, allowing for easier changes or upgrades to different logging systems in the future. 
+
+Make sure to test the class after making these changes to ensure that all logs are being captured as expected and that the migration does not introduce any runtime issues.

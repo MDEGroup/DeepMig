@@ -1,0 +1,78 @@
+To migrate the `NullExternalFactory` class from using Log4j to SLF4J, you can follow these steps, which include updating the imports, changing the logger instantiation, and possibly modifying the logging method call to utilize SLFJ's parameterized messages feature. Here's a detailed breakdown of the changes:
+
+### 1. Update the Imports
+Change the imports to switch from Log4j to SLF4J.
+
+**From:**
+```java
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+```
+
+**To:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Update Logger Declaration
+Modify the logger declaration to use SLF4J's logging factory.
+
+**From:**
+```java
+private static final Logger LOG = LogManager.getLogger(NullExternalFactory.class);
+```
+
+**To:**
+```java
+private static current Logger LOG = LoggerFactory.getLogger(NullExternalFactory.class);
+```
+
+### 3. Modify Logging Method Calls
+Adapt the logging method calls to use SLF4J’s parameterized logging, which improves performance by avoiding unnecessary computation for log messages that may not be displayed.
+
+**From:**
+```java
+LOG.warn("Cannot instantiate {} with arguments {}. Returning null.", new Object[] { pojoClass, Arrays.toString((Object[])genericRequestInfo Args) });
+```
+
+**To (simplified without explicit array creation):**
+```java
+LOG.warn("Cannot instantiate {} with arguments {}. Returning null.", pojoClass, Arrays.toString(genericRequestInfo Args));
+```
+
+### Example of the Full Class After Migration:
+
+**After:**
+```java
+package uk.co.jemos.podam.api;
+
+import java.lang.reflect.Type;
+import java.util.Arrays;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class NullExternalFactory extends AbstractExternalFactory {
+    private static final Logger LOG = LoggerFactory.getLogger(NullExternalFactory.class);
+
+    public static NullExternalFactory getInstance() {
+        return new NullExternalFactory();
+    }
+
+    public <T> T manufacturePojo(Class<T> pojoClass, Type... genericRequestInfo Args) {
+        LOG.warn("Cannot instantiate {} with arguments {}. Returning null.", pojoClass, Arrays.toString(genericTypeArgs));
+        return null;
+    }
+
+    public <T> T populatePojo(T pojo, Type... genericTypeArgs) {
+        return pojo;
+    }
+}
+```
+
+### Additional Notes:
+- **SLF4J Benefits**: Utilizing SLF4J provides flexibility in choosing the underlying logging framework and offers a simple API that supports parameterized messages to optimize performance.
+- **Testing**: Ensure all changes are tested, especially to verify that logging outputs as expected without performance issues.
+- **Configuration**: If there were specific configurations tied to Log4j, consider how to transition them to the chosen SLF4J implementation, like Logback or another logging system.
+
+These changes will help transition the logging system in a manner that maintains functionality while introducing the benefits of SLF4J.

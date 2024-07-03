@@ -1,0 +1,119 @@
+To convert the `ThresholdAudio` class from using the log4j library to slf4j, you will need to modify the import statements, update the logger initialization, and ensure the logging statements conform to slf4j's usage patterns. Here’s a detailed step-by-step on how to make these modifications:
+
+### 1. Modify Import Statements
+Change from log4j to slf4j libraries.
+
+**Original:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**Modified:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Change Logger Initialization
+Switch from log4j’s Logger to slf4j’s LoggerFactory to initialize the logger.
+
+**Original:**
+```java
+protected static final Logger logger = Logger.getLogger(ThresholdImage.class);
+```
+
+**Modified:**
+Since it's using the wrong class for logger naming (`ThresholdImage` instead of `ThresholdAudio`), correct that as well:
+```java
+protected static final Logger logger = LoggerFactory.getLogger(ThresholdAudio.class);
+```
+
+### 3. Review and Update Logging Statements
+Slf4j supports the same `{}` syntax for message formatting which is recommended to use instead of string concatenation.
+
+**Original:**
+```java
+logger.error("Unable to parse image conversion threshold: " + s);
+```
+
+**Modified:**
+```java
+logger.error("Unable to parse image conversion threshold: {}", s);
+```
+
+Here is the full modified version of the `ThresholdAudio` class using slf4j:
+
+```java
+package ca.carleton.gcrc.olkit.multimedia.converter.threshold;
+
+import ca.carleton.gcrc.olkit.multimedia.converter.MultimediaConversionThreshold;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ThresholdAudio implements MultimediaConversionThreshold {
+  protected static final Logger logger = LoggerFactory.getLogger(ThresholdAudio.class);
+  
+  public static ThresholdAudio parseString(String s) {
+    String[] components = s.split(",");
+    if (2 == components.length) {
+      String format = null;
+      Long bitrate = null;
+      if (false == "*".equals(components[0].trim()))
+        format = components[0].trim(); 
+      if (false == "*".equals(components[1].trim()))
+        bitrate = Long.valueOf(Long.parseLong(components[1].trim())); 
+      return new ThresholdAudio(format, bitrate);
+    } 
+    logger.error("Unable to parse image conversion threshold: {}", s);
+    return null;
+  }
+  
+  private String format = null;
+  private Long bitrate = null;
+  
+  public ThresholdAudio(String format, Long bitrate) {
+    this.format = format;
+    this.bitrate = bitrate;
+  }
+  
+  public boolean isConversionRequired(String videoFormat, Long videoRate, String audioFormat, Long audioRate, Long imageWidth, Long imageHeight) {
+    if (null != this.format && !this.format.equals(audioFormat))
+      return true; 
+    if (null != this.bitrate) {
+      if (null == audioRate)
+        return true; 
+      if (audioRate.longValue() > this.bitrate.longValue())
+        return true; 
+    } 
+    return false;
+  }
+  
+  public boolean isResizeRequired(Long imageWidth, Long imageHeight) {
+    return false;
+  }
+  
+  public String toString() {
+    StringWriter sw = new StringWriter();
+    PrintWriter pw = new PrintWriter(sw);
+    pw.print("audio(");
+    if (null != this.format) {
+      pw.print(this.format);
+    } else {
+      pw.print("*");
+    } 
+    pw.print(",");
+    if (null != this.bitrate) {
+      pw.print(this.bitrate);
+    } else {
+      pw.print("*");
+    } 
+    pw.print(")");
+    pw.flush();
+    return sw.toString();
+  }
+}
+```
+
+This modified class now uses slf4j for its logging, making it more flexible and up-to-date with current Java practices. This also corrects a potential issue in the original logger setup where it wrongly referred to another class.

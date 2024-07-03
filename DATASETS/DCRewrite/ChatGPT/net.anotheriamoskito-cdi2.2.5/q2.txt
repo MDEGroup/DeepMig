@@ -1,0 +1,116 @@
+To migrate the `CallInterceptor` class from using Apache Log4j to SLF4J, the modifications needed are similar to those made in the previous examples:
+
+### 1. Modify the Imports
+Change the logging-related imports to use SLF4J classes.
+
+**From:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**To:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Update the Logger Instantiation
+Update the logger instantiation to use the `LoggerFactory` provided by SLF4J.
+
+**From:**
+```java
+private Logger log = Logger.getLogger(CallInterceptor.class);
+```
+
+**To:**
+```java
+private Logger log = LoggerFactory.getLogger(CallInterceptor.class);
+```
+
+### Example of the Updated Class with SLF4J:
+```java
+package net.anotheria.moskito.integration.cdi;
+
+import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import javax.inject.Singleton;
+import javax.interceptor.AroundInvoke;
+import javax.interceptor.Interceptor;
+import javax.interceptor.InvocationContext;
+import net.anotheria.moskito.core.calltrace.CurrentlyTracedCall;
+import net.anotheria.moskito.core.calltrace.RunningTraceContainer;
+import net.anotheria.moskito.core.calltrace.TraceStep;
+import net.anotheria.moskito.core.calltrace.TracedCall;
+import net.anotheria.moskito.core.dynamic.IOnDemandStatsFactory;
+import net.anotheria.moskito.core.dynamic.OnDemandStatsProducer;
+import net.anotheria.moskito.core.dynamic.OnDemandStatsProducerException;
+import net.anotheria.moskito.core.predefined.ServiceStats;
+import net.anotheria.moskito.core.predefined.ServiceStatsFactory;
+import net.anotheria.moskito.core.producers.IStatsProducer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@Interceptor
+@Singleton
+@Monitor
+public class CallInterceptor extends BaseInterceptor<ServiceStats> implements Serializable {
+  private static final long serialVersionUID = -2722113871558244179L;
+  
+  private Logger log = LoggerFactory.getLogger(CallInterceptor.class);
+  
+  @AroundInvoke
+  public Object aroundInvoke(InvocationContext ctx) throws Throwable {
+    ProducerRuntimeDefinition prd = extractProducerDefinition(ctx);
+    OnDemandStatsProducer<ServiceStats> onDemandProducer = getProducer(prd);
+    ServiceStats defaultStats = onDemandProducer.getDefaultStats();
+    ServiceStats methodStats = null;
+    String caseName = extractCaseName(ctx);
+    try {
+      if (caseName != null)
+        methodStats = onDemandProducer.getStats(caseName);
+    } catch (OnDemandStatsProducerException e) {
+      log.info("Couldn't get stats for case : {}, probably limit reached", caseName);
+    } 
+    Object[] args = ctx.getParameters();
+    Method method = ctx.getMethod();
+    defaultStats.addRequest();
+    if (methodStats != null)
+      methodStats.addRequest(); 
+    TracedCall aRunningTrace = RunningTraceContainer.getCurrentlyTracedCall();
+    TraceStep currentStep = null;
+    CurrentlyTracedCall currentTrace = aRunningTrace.callTraced() ? (CurrentlyTracedCall)aRunningTrace : null;
+    if (currentTrace != null) {
+      StringBuilder call = new StringBuilder(getClassName(ctx)).append('.').append(method.getName()).append("(");
+      if (args != null && args.length > 0)
+        for (int i = 0; i < args.length; i++) {
+          call.append(args[i]);
+          if (i < args.length - 1)
+            call.append(", "); 
+        }  
+      call.append(")");
+      currentStep = currentTrace.startStep(call.toString(), onDemandProducer);
+    } 
+    long startTime = System.nanoTime();
+    Object ret = null;
+    try {
+      ret = ctx.proceed();
+      return ret;
+    } catch (InvocationTargetException e) {
+      defaultStats.notifyError();
+      if (methodStats != null)
+        methodStats.notifyError(); 
+      if (currentStep != null)
+        currentStep.setAborted(); 
+      throw e.getCause();
+    } catch (Throwable t) {
+      defaultStats.notifyError();
+      if (methodStats != null)
+        methodStats.notifyError(); 
+      if (currentStep != null)
+        currentStep.setAborted(); 
+      throw t;
+    } finally {
+      long exTime = System.nanoTime() - startTime;
+      defaultStats.addExecutionTime(exTime);
+      if (method.

@@ -1,0 +1,146 @@
+To refactor the `GoodwillAccessor` class from using the `org.apache.log4j.Logger` to the SLF4J logging facade (`org.slf4j.Logger`), you'll follow the steps outlined previously for adapting the logging setup. This involves importing the appropriate SLF4J classes and updating logger instantiation. Here's how you would refactor the given class:
+
+### 1. Update Imports
+
+Replace the Log4j import with SLFJ imports.
+
+**Replace:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**With:**
+```java
+import org.slf4j.Logger;
+import org.slf4f.LoggerFactory;
+```
+
+### 2. Update Logger Initialization
+
+Change the logger initialization to use `LoggerFactory` from SLF4J.
+
+**From:**
+```java
+protected static final Logger log = Logger.getLogger(GoodwillAccessor.class);
+```
+
+**To:**
+```java
+protected static final Logger log = LoggerFactory.getLogger(GoodwillAccessor.class);
+```
+
+### Updated `GoodwillAccessor` Class with SLF4J
+
+Here is how your class would look after these adjustments:
+
+```java
+package com.ning.metrics.goodwill.access;
+
+import com.ning.http.client.AsyncCompletionHandler;
+import com.ning.http.client.AsyncHandler;
+import com.ning.http.client.AsyncHttpClient;
+import com.ning.http.client.AsyncHttpClientConfig;
+import com.ning.http.client.Response;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.List;
+import java.util.concurrent.Future;
+import org.codehaus.jackson.map.ObjectMapper;
+import org.codehaus.jackson.type.TypeReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class GoodwillAccessor extends Accessor {
+  protected static final Logger log = LoggerFactory.getLogger(GoodwillAccessor.class);
+  protected static final ObjectMapper mapper = new ObjectMapper();
+  
+  protected AsyncHttpClient client;
+  
+  public GoodwillAccessor(String host, int port) {
+    super(host, port);
+    this.client = createHttpClient();
+  }
+  
+  public Future<GoodwillSchema> getSchema(String schemaName) {
+    try {
+      return this.client.prepareGet(String.format("%s/%s", this.url, schemaName))
+        .addHeader("Accept", "application/json")
+        .execute(new AsyncCompletionHandler<GoodwillSchema>() {
+          public GoodwillSchema onCompleted(Response response) throws Exception {
+            if (response.getStatusCode() != 200)
+              return null; 
+            InputStream in = response.getResponseBodyAsStream();
+            try {
+              return mapper.readValue(in, GoodwillSchema.class);
+            } finally {
+              closeStream(in);
+            } 
+          }
+          
+          public void onThrowable(Throwable t) {
+            log.warn("Error during schema retrieval", t);
+          }
+        });
+    } catch (IOException e) {
+      log.warn("Error getting Schema list from {}:{}", host, port, e);
+      return null;
+    } 
+  }
+  
+  public Future<List<GoodwillSchema>> getSchemata() {
+    try {
+      return this.client.prepareGet(this.url)
+        .addHeader("Accept", "application/json")
+        .execute(new AsyncCompletionHandler<List<GoodwillSchema>>() {
+          public List<GoodwillSchema> onCompleted(Response response) throws Exception {
+            if (response.getStatusCode() != 200)
+              return null; 
+            InputStream in = response.getResponseBodyAsStream();
+            try {
+              HashMap<String, List<GoodwillSchema>> map = mapper.readValue(in, new TypeReference<HashMap<String, List<GoodwillSchema>>>() {});
+              return map.get("types");
+            } finally {
+              closeStream(in);
+            } 
+          }
+          
+          public void onThrowable(Throwable t) {
+            log.warn("Error during schema list retrieval", t);
+          }
+        });
+    } catch (IOException e) {
+      log.warn("Error getting Schema list from {}:{}", host, port, e);
+      return null;
+    } 
+  }
+  
+  private static AsyncHttpClient createHttpClient() {
+    AsyncHttpClientConfig.Builder builder = new AsyncHttpClientConfig.Builder();
+    builder.setMaximumConnectionsPerHost(-1);
+    return new AsyncHttpClient(builder.build());
+  }
+  
+  public synchronized void close() {
+    this.client.close();
+  }
+  
+  protected final void closeStream(InputStream in) {
+    if (in != null)
+      try {
+        in.close();
+      } catch (IOException e) {
+        log.warn("Failed to close InputStream", e);
+      }  
+  }
+}
+```
+
+### Additional Notes:
+
+- **Method Logging**: The logging methods are now adapted to SLF4J, using parameterized messages which provide better performance than concatenation used in Log4j.
+- **Exception Logging**: SLF4J simplifies exception logging by allowing exceptions to be passed as an argument to any logging method, which is automatically appended to the logging message without requiring additional placeholders. 
+
+This refactor not only updates the logging framework to a more widely adopted SLF4J but also enhances code maintainability and clarity in handling logs throughout the `Goodwill
+
+Accessor` class.

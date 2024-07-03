@@ -1,5 +1,3 @@
-To migrate the `PageInterceptor` class
-
 To migrate the `PageInterceptor` class from using `Log4j` to `SLF4J`, the primary change involves modifying how the `Logger` is instantiated and potentially how messages are logged. Here are the changes needed for the `PageInterceptor` class:
 
 1. **Change Logger Import:**

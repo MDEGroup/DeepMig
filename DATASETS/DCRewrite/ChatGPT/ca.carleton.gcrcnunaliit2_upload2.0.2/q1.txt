@@ -1,0 +1,57 @@
+To update the `UploadUtils` class from using the log4j library to slf4j, you'll need to adjust the logger setup and modify any existing logging statements to use the slf4j framework. Here’s how to update this utility class:
+
+### 1. Replace Logger Import
+Change the logger import from log4j to slf4j for a modern logging approach.
+
+**From:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**To:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Modify Logger Initialization
+Update the way the logger is instantiated to use the LoggerFactory provided by slf4j.
+
+**From:**
+```java
+protected static final Logger logger = Logger.getLogger(UploadUtils.class);
+```
+
+**To:**
+```java
+protected static final Logger logger = LoggerFactory.getLogger(UploadUtils.class);
+```
+
+### 3. Update Logging Statements
+Modify logging statements to utilize slf4j’s parameterized messages. This change improves performance by avoiding unnecessary string concatenation and only computes the string if the log level is enabled.
+
+#### Examples of Updated Logging Statements
+
+**Before:**
+```java
+logger.error("Property file location can not be determined");
+logger.info("Reading properties from " + propFile.getAbsolutePath());
+logger.error("Unable to read properties from " + propFile.getAbsolutePath(), e);
+```
+
+**After:**
+```java
+logger.error("Property file location can not be determined");
+logger.info("Reading properties from {}", propFile.getAbsolutePath());
+logger.error("Unable to read properties from {}", propFile.getAbsolutePath(), e);
+```
+
+These updates ensure that logs include dynamic content more efficiently. slf4j’s logging statements are clearer and less prone to errors due to misplaced plus signs or missing data elements.
+
+### Summary
+By adopting slf4j:
+- **Performance**: Improves due to deferred computation of the log message.
+- **Flexibility**: Provides easier integration with various logging frameworks (like Logback, Log4J2).
+- **Safety**: Reduces potential for errors in log message construction.
+
+After implementing these changes, ensure you test the class thoroughly to verify that all logging functions as expected and provides the necessary diagnostic information. This will help maintain or enhance the observability and reliability of the upload functionality in your application.

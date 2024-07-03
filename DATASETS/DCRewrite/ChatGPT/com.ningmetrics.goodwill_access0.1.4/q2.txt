@@ -1,0 +1,118 @@
+To refactor the `CachingGoodwillAccessor` class from using the `org.apache.log4j.Logger` to the SLF4J logging facade (`org.slf4j.Logger`), follow these key changes:
+
+### 1. Update Imports
+
+First, change the imports to use SLF4J instead of Log4j.
+
+**Replace:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**With:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Update Logger Initialization
+
+Modify how the logger is initialized to utilize the `LoggerFactory` provided by SLF4J.
+
+**From:**
+```java 
+private static final Logger log = Logger.getLogger(CachingGoodwillAccessor.class);
+```
+
+**To:**
+```java
+private static final Logger log = LoggerFactory.getLogger(CachingGoodwillAccessor.class);
+```
+
+### Updated Class with SLF4J
+
+Here’s how the `CachingGoodgodwillAccessor` class would look after refactoring to use SLF4J:
+
+```java
+package com.ning.metrics.goodwill.access;
+
+import com.mogwee.executors.Executors;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class CachingGoodwillAccessor extends Accessor {
+  private static final Logger log = LoggerFactory.getLogger(CachingGoodwillAccessor.class);
+  private static final int DEFAULT_CACHE_TIMEOUT_IN_SECONDS = 90;
+  
+  private final Object cacheMonitor = new Object();
+  
+  private final ConcurrentHashMap<String, GoodwillSchema> knownSchemata = new ConcurrentHashMap<>();
+  
+  private final GoodwillAccessor delegate;
+  
+  public CachingGoodwillAccessor(String host, int port) {
+    this(host, port, DEFAULT_CACHE_TIMEOUT_IN_SECONDS);
+  }
+  
+  public CachingGoodwillAccessor(String host, int port, int cacheTimeoutInSeconds) {
+    super(host, port);
+    this.delegate = new GoodwillAccessor(host, port);
+    Executors.newScheduledThreadPool(1, "GoodwillCacheRefresher").scheduleWithFixedDelay(new Runnable() {
+      public void run() {
+        refreshSchemataCache();
+      }
+    }, 0L, cacheTimeoutInSeconds, TimeUnit.SECONDS);
+  }
+  
+  public void refreshSchemataCache() {
+    try {
+      List<GoodwillSchema> schemata = this.delegate.getSchemata().get();
+      if (schemata == null)
+        return; 
+      Map<String, GoodwillSchema> newSchemataCache = new ConcurrentHashMap<>();
+      for (GoodwillarSchema schema : schemata)
+        newSchemataCache.put(schema.getName(), schema);
+      synchronized (this.cacheMonitor) {
+        this.knownSchemata.clear();
+        this.knownSchemata.putAll(newSchemataCache);
+      }
+    } catch (InterruptedException e) {
+      log.warn("Interrupted while refreshing the cache");
+      Thread.currentThread().interrupt();
+    } catch (ExecutionException e) {
+      log.warn("Unable to refresh schemata cache: {}", e.getLocalizedMessage());
+    }
+  }
+  
+  public GoodwillSchema getSchema(String schemaName) {
+    GoodwillSchema schema = this.knownSchemata.get(schemaName);
+    if (schema == null) {
+      refreshSchemataCache();
+      schema = this.knownSchemata.get(schemaName);
+    }
+    return schema;
+  }
+  
+  public List<GoodwillSchema> getSchemata() {
+    return Collections.list(this.knownSchemata.elements());
+  }
+  
+  public synchronized void close() {
+    this.delegate.close();
+  }
+}
+```
+
+### Additional Notes
+
+1. **Parameterized Logging**: In the refactored class, parameterized logging is used to improve performance by avoiding unnecessary `String` concatenation unless the log statement is actually being written to the log file.
+
+2. **Exception Logging**: SLF4J simplifies logging of exceptions by allowing you to pass the exception instance as the last parameter to any logging method without needing to provide a placeholder `{}`. This is particularly useful for logging detailed exception information. 
+
+By making these changes, you align the class with modern best practices for logging, improving maintainability and performance.
