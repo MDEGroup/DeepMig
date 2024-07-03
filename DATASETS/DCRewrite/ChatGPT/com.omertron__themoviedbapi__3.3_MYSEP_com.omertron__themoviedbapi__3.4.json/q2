@@ -1,0 +1,71 @@
+To migrate the given code from Log4j to SLF4J, the following changes are necessary:
+
+Update import statements for SLF4J.
+Update the logger initialization to use SLF4J.
+Below are the changes highlighted in the code:
+
+java
+Copia codice
+package com.omertron.themoviedbapi.model;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.io.Serializable;
+// Update import statement to use SLF4J
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class StatusCode implements Serializable {
+  private static final long serialVersionUID = 1L;
+  
+  // Update logger initialization to use SLF4J
+  // private static final Logger logger = Logger.getLogger(StatusCode.class);
+  private static final Logger logger = LoggerFactory.getLogger(StatusCode.class);
+  
+  @JsonProperty("status_code")
+  private int statusCode;
+  
+  @JsonProperty("status_message")
+  private String statusMessage;
+  
+  public int getStatusCode() {
+    return this.statusCode;
+  }
+  
+  public void setStatusCode(int statusCode) {
+    this.statusCode = statusCode;
+  }
+  
+  public String getStatusMessage() {
+    return this.statusMessage;
+  }
+  
+  public void setStatusMessage(String statusMessage) {
+    this.statusMessage = statusMessage;
+  }
+  
+  @JsonAnySetter
+  public void handleUnknown(String key, Object value) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Unknown property: '").append(key);
+    sb.append("' value: '").append(value).append("'");
+    logger.trace(sb.toString());
+  }
+  
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Status Code: ").append(this.statusCode);
+    sb.append(", Message: ").append(this.statusMessage);
+    return sb.toString();
+  }
+}
+Summary of Changes:
+Import Statements:
+
+Replace import org.apache.log4j.Logger; with import org.slf4j.Logger;
+Add import org.slf4j.LoggerFactory;
+Logger Initialization:
+
+Replace private static final Logger logger = Logger.getLogger(StatusCode.class); with private static final Logger logger = LoggerFactory.getLogger(StatusCode.class);
+These changes will migrate the logging from Log4j to SLF4J.

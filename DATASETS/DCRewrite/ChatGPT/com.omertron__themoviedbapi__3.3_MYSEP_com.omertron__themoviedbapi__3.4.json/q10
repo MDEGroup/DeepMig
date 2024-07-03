@@ -1,0 +1,107 @@
+
+To migrate the given class from Log4j to SLF4J, you need to update the import statements, logger initialization, and logging method calls. Below are the necessary changes highlighted in the code:
+
+Update import statements for SLF4J.
+Update the logger initialization to use SLF4J.
+Here are the changes:
+
+java
+Copia codice
+package com.omertron.themoviedbapi.model;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.io.Serializable;
+// Update import statement to use SLF4J
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ReleaseInfo implements Serializable {
+  private static final long serialVersionUID = 1L;
+  
+  // Update logger initialization to use SLF4J
+  // private static final Logger logger = Logger.getLogger(ReleaseInfo.class);
+  private static final Logger logger = LoggerFactory.getLogger(ReleaseInfo.class);
+  
+  @JsonProperty("iso_3166_1")
+  private String country;
+  
+  @JsonProperty("certification")
+  private String certification;
+  
+  @JsonProperty("release_date")
+  private String releaseDate;
+  
+  public String getCertification() {
+    return this.certification;
+  }
+  
+  public String getCountry() {
+    return this.country;
+  }
+  
+  public String getReleaseDate() {
+    return this.releaseDate;
+  }
+  
+  public void setCertification(String certification) {
+    this.certification = certification;
+  }
+  
+  public void setCountry(String country) {
+    this.country = country;
+  }
+  
+  public void setReleaseDate(String releaseDate) {
+    this.releaseDate = releaseDate;
+  }
+  
+  @JsonAnySetter
+  public void handleUnknown(String key, Object value) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Unknown property: '").append(key);
+    sb.append("' value: '").append(value).append("'");
+    logger.trace(sb.toString());
+  }
+  
+  public boolean equals(Object obj) {
+    if (obj == null)
+      return false; 
+    if (getClass() != obj.getClass())
+      return false; 
+    ReleaseInfo other = (ReleaseInfo)obj;
+    if ((this.country == null) ? (other.country != null) : !this.country.equals(other.country))
+      return false; 
+    if ((this.certification == null) ? (other.certification != null) : !this.certification.equals(other.certification))
+      return false; 
+    if ((this.releaseDate == null) ? (other.releaseDate != null) : !this.releaseDate.equals(other.releaseDate))
+      return false; 
+    return true;
+  }
+  
+  public int hashCode() {
+    int hash = 3;
+    hash = 89 * hash + ((this.country != null) ? this.country.hashCode() : 0);
+    hash = 89 * hash + ((this.certification != null) ? this.certification.hashCode() : 0);
+    hash = 89 * hash + ((this.releaseDate != null) ? this.releaseDate.hashCode() : 0);
+    return hash;
+  }
+  
+  public String toString() {
+    StringBuilder sb = new StringBuilder("[ReleaseInfo=");
+    sb.append("[country=").append(this.country);
+    sb.append("],[certification=").append(this.certification);
+    sb.append("],[releaseDate=").append(this.releaseDate);
+    sb.append("]]");
+    return sb.toString();
+  }
+}
+Summary of Changes:
+Import Statements:
+
+Replace import org.apache.log4j.Logger; with import org.slf4j.Logger; and import org.slf4j.LoggerFactory;.
+Logger Initialization:
+
+Replace private static final Logger logger = Logger.getLogger(ReleaseInfo.class); with private static final Logger logger = LoggerFactory.getLogger(ReleaseInfo.class);.
+These changes will migrate the logging from Log4j to SLF4J.

@@ -1,0 +1,158 @@
+
+To migrate the given code from Log4j to SLF4J, the following changes are necessary:
+
+Update import statements for SLF4J.
+Update the logger initialization to use SLF4J.
+Below are the changes highlighted in the code:
+
+java
+Copia codice
+package com.omertron.themoviedbapi.model;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.io.Serializable;
+import java.util.List;
+import org.apache.commons.lang3.StringUtils;
+// Update import statement to use SLF4J
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class TmdbConfiguration implements Serializable {
+  private static final long serialVersionUID = 1L;
+  
+  // Update logger initialization to use SLF4J
+  // private static final Logger logger = Logger.getLogger(TmdbConfiguration.class);
+  private static final Logger logger = LoggerFactory.getLogger(TmdbConfiguration.class);
+  
+  @JsonProperty("base_url")
+  private String baseUrl;
+  
+  @JsonProperty("secure_base_url")
+  private String secureBaseUrl;
+  
+  @JsonProperty("poster_sizes")
+  private List<String> posterSizes;
+  
+  @JsonProperty("backdrop_sizes")
+  private List<String> backdropSizes;
+  
+  @JsonProperty("profile_sizes")
+  private List<String> profileSizes;
+  
+  @JsonProperty("logo_sizes")
+  private List<String> logoSizes;
+  
+  public List<String> getBackdropSizes() {
+    return this.backdropSizes;
+  }
+  
+  public String getBaseUrl() {
+    return this.baseUrl;
+  }
+  
+  public List<String> getPosterSizes() {
+    return this.posterSizes;
+  }
+  
+  public List<String> getProfileSizes() {
+    return this.profileSizes;
+  }
+  
+  public List<String> getLogoSizes() {
+    return this.logoSizes;
+  }
+  
+  public String getSecureBaseUrl() {
+    return this.secureBaseUrl;
+  }
+  
+  public void setBackdropSizes(List<String> backdropSizes) {
+    this.backdropSizes = backdropSizes;
+  }
+  
+  public void setBaseUrl(String baseUrl) {
+    this.baseUrl = baseUrl;
+  }
+  
+  public void setPosterSizes(List<String> posterSizes) {
+    this.posterSizes = posterSizes;
+  }
+  
+  public void setProfileSizes(List<String> profileSizes) {
+    this.profileSizes = profileSizes;
+  }
+  
+  public void setLogoSizes(List<String> logoSizes) {
+    this.logoSizes = logoSizes;
+  }
+  
+  public void setSecureBaseUrl(String secureBaseUrl) {
+    this.secureBaseUrl = secureBaseUrl;
+  }
+  
+  public void clone(TmdbConfiguration config) {
+    this.backdropSizes = config.getBackdropSizes();
+    this.baseUrl = config.getBaseUrl();
+    this.posterSizes = config.getPosterSizes();
+    this.profileSizes = config.getProfileSizes();
+    this.logoSizes = config.getLogoSizes();
+  }
+  
+  public boolean isValidPosterSize(String posterSize) {
+    if (StringUtils.isBlank(posterSize) || this.posterSizes.isEmpty())
+      return false; 
+    return this.posterSizes.contains(posterSize);
+  }
+  
+  public boolean isValidBackdropSize(String backdropSize) {
+    if (StringUtils.isBlank(backdropSize) || this.backdropSizes.isEmpty())
+      return false; 
+    return this.backdropSizes.contains(backdropSize);
+  }
+  
+  public boolean isValidProfileSize(String profileSize) {
+    if (StringUtils.isBlank(profileSize) || this.profileSizes.isEmpty())
+      return false; 
+    return this.profileSizes.contains(profileSize);
+  }
+  
+  public boolean isValidLogoSize(String logoSize) {
+    if (StringUtils.isBlank(logoSize) || this.logoSizes.isEmpty())
+      return false; 
+    return this.logoSizes.contains(logoSize);
+  }
+  
+  public boolean isValidSize(String sizeToCheck) {
+    return (isValidPosterSize(sizeToCheck) || isValidBackdropSize(sizeToCheck) || isValidProfileSize(sizeToCheck) || isValidLogoSize(sizeToCheck));
+  }
+  
+  @JsonAnySetter
+  public void handleUnknown(String key, Object value) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Unknown property: '").append(key);
+    sb.append("' value: '").append(value).append("'");
+    logger.trace(sb.toString());
+  }
+  
+  public String toString() {
+    StringBuilder sb = new StringBuilder("[ImageConfiguration=");
+    sb.append("[baseUrl=").append(this.baseUrl);
+    sb.append("],[posterSizes=").append(this.posterSizes.toString());
+    sb.append("],[backdropSizes=").append(this.backdropSizes.toString());
+    sb.append("],[profileSizes=").append(this.profileSizes.toString());
+    sb.append("],[logoSizes=").append(this.logoSizes.toString());
+    sb.append("]]");
+    return sb.toString();
+  }
+}
+Summary of Changes:
+Import Statements:
+
+Replace import org.apache.log4j.Logger; with import org.slf4j.Logger;
+Add import org.slf4j.LoggerFactory;
+Logger Initialization:
+
+Replace private static final Logger logger = Logger.getLogger(TmdbConfiguration.class); with private static final Logger logger = LoggerFactory.getLogger(TmdbConfiguration.class);
+These changes will migrate the logging from Log4j to SLF4J.

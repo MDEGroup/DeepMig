@@ -1,0 +1,75 @@
+To migrate the given class from Log4j to SLF4J, you need to update the import statements, logger initialization, and logging method calls. Below are the necessary changes highlighted in the code:
+
+Update import statements for SLF4J.
+Update the logger initialization to use SLF4J.
+Here are the changes:
+
+java
+Copia codice
+package com.omertron.themoviedbapi.model;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+// Update import statement to use SLF4J
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class TokenAuthorisation {
+  // Update logger initialization to use SLF4J
+  // private static final Logger logger = Logger.getLogger(TokenAuthorisation.class);
+  private static final Logger logger = LoggerFactory.getLogger(TokenAuthorisation.class);
+  
+  @JsonProperty("expires_at")
+  private String expires;
+  
+  @JsonProperty("request_token")
+  private String requestToken;
+  
+  @JsonProperty("success")
+  private Boolean success;
+  
+  public String getExpires() {
+    return this.expires;
+  }
+  
+  public String getRequestToken() {
+    return this.requestToken;
+  }
+  
+  public Boolean getSuccess() {
+    return this.success;
+  }
+  
+  public void setExpires(String expires) {
+    this.expires = expires;
+  }
+  
+  public void setRequestToken(String requestToken) {
+    this.requestToken = requestToken;
+  }
+  
+  public void setSuccess(Boolean success) {
+    this.success = success;
+  }
+  
+  @JsonAnySetter
+  public void handleUnknown(String key, Object value) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Unknown property: '").append(key);
+    sb.append("' value: '").append(value).append("'");
+    logger.trace(sb.toString());
+  }
+  
+  public String toString() {
+    return "TokenAuthorisation{expires=" + this.expires + ", requestToken=" + this.requestToken + ", success=" + this.success + '}';
+  }
+}
+Summary of Changes:
+Import Statements:
+
+Replace import org.apache.log4j.Logger; with import org.slf4j.Logger; and import org.slf4j.LoggerFactory;.
+Logger Initialization:
+
+Replace private static final Logger logger = Logger.getLogger(TokenAuthorisation.class); with private static final Logger logger = LoggerFactory.getLogger(TokenAuthorisation.class);.
+These changes will migrate the logging from Log4j to SLF4J.

@@ -1,0 +1,106 @@
+To migrate the given class from Log4j to SLF4J, you need to update the import statements, logger initialization, and logging method calls. Below are the necessary changes highlighted in the code:
+
+Update import statements for SLF4J.
+Update the logger initialization to use SLF4J.
+Here are the changes:
+
+java
+Copia codice
+package com.omertron.themoviedbapi.model;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.io.Serializable;
+// Update import statement to use SLF4J
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class Translation implements Serializable {
+  private static final long serialVersionUID = 1L;
+  
+  // Update logger initialization to use SLF4J
+  // private static final Logger logger = Logger.getLogger(Translation.class);
+  private static final Logger logger = LoggerFactory.getLogger(Translation.class);
+  
+  @JsonProperty("english_name")
+  private String englishName;
+  
+  @JsonProperty("iso_639_1")
+  private String isoCode;
+  
+  @JsonProperty("name")
+  private String name;
+  
+  public String getEnglishName() {
+    return this.englishName;
+  }
+  
+  public String getIsoCode() {
+    return this.isoCode;
+  }
+  
+  public String getName() {
+    return this.name;
+  }
+  
+  public void setEnglishName(String englishName) {
+    this.englishName = englishName;
+  }
+  
+  public void setIsoCode(String isoCode) {
+    this.isoCode = isoCode;
+  }
+  
+  public void setName(String name) {
+    this.name = name;
+  }
+  
+  @JsonAnySetter
+  public void handleUnknown(String key, Object value) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Unknown property: '").append(key);
+    sb.append("' value: '").append(value).append("'");
+    logger.trace(sb.toString());
+  }
+  
+  public boolean equals(Object obj) {
+    if (obj == null)
+      return false; 
+    if (getClass() != obj.getClass())
+      return false; 
+    Translation other = (Translation)obj;
+    if ((this.englishName == null) ? (other.englishName != null) : !this.englishName.equals(other.englishName))
+      return false; 
+    if ((this.isoCode == null) ? (other.isoCode != null) : !this.isoCode.equals(other.isoCode))
+      return false; 
+    if ((this.name == null) ? (other.name != null) : !this.name.equals(other.name))
+      return false; 
+    return true;
+  }
+  
+  public int hashCode() {
+    int hash = 3;
+    hash = 29 * hash + ((this.englishName != null) ? this.englishName.hashCode() : 0);
+    hash = 29 * hash + ((this.isoCode != null) ? this.isoCode.hashCode() : 0);
+    hash = 29 * hash + ((this.name != null) ? this.name.hashCode() : 0);
+    return hash;
+  }
+  
+  public String toString() {
+    StringBuilder sb = new StringBuilder("[Translation=");
+    sb.append("[englishName=").append(this.englishName);
+    sb.append("],[isoCode=").append(this.isoCode);
+    sb.append("],[name=").append(this.name);
+    sb.append("]]");
+    return sb.toString();
+  }
+}
+Summary of Changes:
+Import Statements:
+
+Replace import org.apache.log4j.Logger; with import org.slf4j.Logger; and import org.slf4j.LoggerFactory;.
+Logger Initialization:
+
+Replace private static final Logger logger = Logger.getLogger(Translation.class); with private static final Logger logger = LoggerFactory.getLogger(Translation.class);.
+These changes will migrate the logging from Log4j to SLF4J.

@@ -1,0 +1,109 @@
+To migrate the given class from Log4j to SLF4J, you need to update the import statements, logger initialization, and logging method calls. Below are the necessary changes highlighted in the code:
+
+Update import statements for SLF4J.
+Update the logger initialization to use SLF4J.
+Here are the changes:
+
+java
+Copia codice
+package com.omertron.themoviedbapi.model;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
+// Update import statement to use SLF4J
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class CollectionInfo implements Serializable {
+  private static final long serialVersionUID = 1L;
+  
+  // Update logger initialization to use SLF4J
+  // private static final Logger logger = Logger.getLogger(CollectionInfo.class);
+  private static final Logger logger = LoggerFactory.getLogger(CollectionInfo.class);
+  
+  @JsonProperty("id")
+  private int id;
+  
+  @JsonProperty("name")
+  private String name;
+  
+  @JsonProperty("poster_path")
+  private String posterPath;
+  
+  @JsonProperty("backdrop_path")
+  private String backdropPath;
+  
+  @JsonProperty("parts")
+  private List<Collection> parts = new ArrayList<Collection>();
+  
+  public String getBackdropPath() {
+    return this.backdropPath;
+  }
+  
+  public int getId() {
+    return this.id;
+  }
+  
+  public String getName() {
+    return this.name;
+  }
+  
+  public List<Collection> getParts() {
+    return this.parts;
+  }
+  
+  public String getPosterPath() {
+    return this.posterPath;
+  }
+  
+  public void setBackdropPath(String backdropPath) {
+    this.backdropPath = backdropPath;
+  }
+  
+  public void setId(int id) {
+    this.id = id;
+  }
+  
+  public void setName(String name) {
+    this.name = name;
+  }
+  
+  public void setParts(List<Collection> parts) {
+    this.parts = parts;
+  }
+  
+  public void setPosterPath(String posterPath) {
+    this.posterPath = posterPath;
+  }
+  
+  @JsonAnySetter
+  public void handleUnknown(String key, Object value) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Unknown property: '").append(key);
+    sb.append("' value: '").append(value).append("'");
+    logger.trace(sb.toString());
+  }
+  
+  public String toString() {
+    StringBuilder sb = new StringBuilder("[CollectionInfo=");
+    sb.append("[id=").append(this.id);
+    sb.append("],[name=").append(this.name);
+    sb.append("],[posterPath=").append(this.posterPath);
+    sb.append("],[backdropPath=").append(this.backdropPath);
+    sb.append("],[# of parts=").append(this.parts.size());
+    sb.append("]]");
+    return sb.toString();
+  }
+}
+Summary of Changes:
+Import Statements:
+
+Replace import org.apache.log4j.Logger; with import org.slf4j.Logger; and import org.slf4j.LoggerFactory;.
+Logger Initialization:
+
+Replace private static final Logger logger = Logger.getLogger(CollectionInfo.class); with private static final Logger logger = LoggerFactory.getLogger(CollectionInfo.class);.
+These changes will migrate the logging from Log4j to SLF4J.

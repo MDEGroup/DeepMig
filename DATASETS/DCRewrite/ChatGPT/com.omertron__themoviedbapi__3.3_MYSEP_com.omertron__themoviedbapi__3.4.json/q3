@@ -1,0 +1,135 @@
+o migrate the given code from Log4j to SLF4J, the following changes are necessary:
+
+Update import statements for SLF4J.
+Update the logger initialization to use SLF4J.
+Below are the changes highlighted in the code:
+
+java
+Copia codice
+package com.omertron.themoviedbapi.model;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.io.Serializable;
+// Update import statement to use SLF4J
+// import org.apache.log4j.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class PersonCrew implements Serializable {
+  private static final long serialVersionUID = 1L;
+  
+  // Update logger initialization to use SLF4J
+  // private static final Logger logger = Logger.getLogger(PersonCrew.class);
+  private static final Logger logger = LoggerFactory.getLogger(PersonCrew.class);
+  
+  @JsonProperty("id")
+  private int id;
+  
+  @JsonProperty("department")
+  private String department;
+  
+  @JsonProperty("job")
+  private String job;
+  
+  @JsonProperty("name")
+  private String name;
+  
+  @JsonProperty("profile_path")
+  private String profilePath;
+  
+  public String getDepartment() {
+    return this.department;
+  }
+  
+  public int getId() {
+    return this.id;
+  }
+  
+  public String getJob() {
+    return this.job;
+  }
+  
+  public String getName() {
+    return this.name;
+  }
+  
+  public String getProfilePath() {
+    return this.profilePath;
+  }
+  
+  public void setDepartment(String department) {
+    this.department = department;
+  }
+  
+  public void setId(int id) {
+    this.id = id;
+  }
+  
+  public void setJob(String job) {
+    this.job = job;
+  }
+  
+  public void setName(String name) {
+    this.name = name;
+  }
+  
+  public void setProfilePath(String profilePath) {
+    this.profilePath = profilePath;
+  }
+  
+  @JsonAnySetter
+  public void handleUnknown(String key, Object value) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Unknown property: '").append(key);
+    sb.append("' value: '").append(value).append("'");
+    logger.trace(sb.toString());
+  }
+  
+  public boolean equals(Object obj) {
+    if (obj == null)
+      return false; 
+    if (getClass() != obj.getClass())
+      return false; 
+    PersonCrew other = (PersonCrew)obj;
+    if (this.id != other.id)
+      return false; 
+    if ((this.department == null) ? (other.department != null) : !this.department.equals(other.department))
+      return false; 
+    if ((this.job == null) ? (other.job != null) : !this.job.equals(other.job))
+      return false; 
+    if ((this.name == null) ? (other.name != null) : !this.name.equals(other.name))
+      return false; 
+    return true;
+  }
+  
+  public int hashCode() {
+    int hash = 7;
+    hash = 59 * hash + this.id;
+    hash = 59 * hash + ((this.department != null) ? this.department.hashCode() : 0);
+    hash = 59 * hash + ((this.job != null) ? this.job.hashCode() : 0);
+    hash = 59 * hash + ((this.name != null) ? this.name.hashCode() : 0);
+    hash = 59 * hash + ((this.profilePath != null) ? this.profilePath.hashCode() : 0);
+    return hash;
+  }
+  
+  public String toString() {
+    StringBuilder sb = new StringBuilder("[PersonCrew=");
+    sb.append("id=").append(this.id);
+    sb.append("],[department=").append(this.department);
+    sb.append("],[job=").append(this.job);
+    sb.append("],[name=").append(this.name);
+    sb.append("],[profilePath=").append(this.profilePath);
+    sb.append("]]");
+    return sb.toString();
+  }
+}
+Summary of Changes:
+Import Statements:
+
+Replace import org.apache.log4j.Logger; with import org.slf4j.Logger;
+Add import org.slf4j.LoggerFactory;
+Logger Initialization:
+
+Replace private static final Logger logger = Logger.getLogger(PersonCrew.class); with private static final Logger logger = LoggerFactory.getLogger(PersonCrew.class);
+These changes will migrate the logging from Log4j to SLF4J.
