@@ -1,0 +1,140 @@
+To convert the `Company` class from using log4j to using slf4j for logging, we'll perform similar changes to those made in previous examples. This involves updating the import statements, changing the logger instantiation, and ensuring compatibility.
+
+### 1. Update Import Statements
+Replace the log4j import statement with the corresponding slf4j imports.
+
+**Original:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**Modified:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Modify Logger Instantiation
+Change how the logger is instantiated to use `LoggerFactory`.
+
+**Original:**
+```java
+private static final Logger logger = Logger.getLogger(Company.class);
+```
+
+**Modified:**
+```java
+private static final Logger logger = LoggerFactory.getLogger(Company.class);
+```
+
+### Full Modified Class Code
+Here's the complete class after applying these modifications:
+
+```java
+package com.omertron.themoviedbapi.model;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.io.Serializable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class Company implements Serializable {
+  private static final long serialVersionUID = 1L;
+  
+  private static final Logger logger = LoggerFactory.getLogger(Company.class);
+  
+  private static final String DEFAULT_STRING = "";
+  
+  @JsonProperty("id")
+  private int companyId = 0;
+  
+  @JsonProperty("name")
+  private String name = DEFAULT_STRING;
+  
+  @JsonProperty("description")
+  private String description = DEFAULT_STRING;
+  
+  @JsonProperty("headquarters")
+  private String headquarters = DEFAULT_STRING;
+  
+  @JsonProperty("homepage")
+  private String homepage = DEFAULT_STRING;
+  
+  @JsonProperty("logo_path")
+  private String logoPath = DEFAULT_STRING;
+  
+  @JsonProperty("parent_company")
+  private String parentCompany = DEFAULT_STRING;
+  
+  public int getCompanyId() {
+    return this.companyId;
+  }
+  
+  public String getDescription() {
+    return this.description;
+  }
+  
+  public String getHeadquarters() {
+    return this.headquarters;
+  }
+  
+  public String getHomepage() {
+    return this.homepage;
+  }
+  
+  public String getLogoPath() {
+    return this.logoPath;
+  }
+  
+  public String getName() {
+    return this.name;
+  }
+  
+  public String getParentCompany() {
+    return this.parentCompany;
+  }
+  
+  public void setCompanyId(int companyId) {
+    this.companyId = companyId;
+  }
+  
+  public void setDescription(String description) {
+    this.description = description;
+  }
+  
+  public void setHeadquarters(String headquarters) {
+    this.headquarters = headquarters;
+  }
+  
+  public void setHomepage(String homepage) {
+    this.homepage = homepage;
+  }
+  
+  public void setLogoPath(String logoPath) {
+    this.logoPath = logoPath;
+  }
+  
+  public void setName(String name) {
+    this.name = name;
+  }
+  
+  public void setParentCompany(String parentCompany) {
+    this.parentCompany = parentCompany;
+  }
+  
+  @JsonAnySetter
+  public void handleUnknown(String key, Object value) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Unknown property: '").append(key);
+    sb.append("' value: '").append(value).append("'");
+    logger.trace(sb.toString());
+  }
+  
+  public String toString() {
+    return "Company{companyId=" + this.companyId + ", name=" + this.name + ", description=" + this.description + ", headquarters=" + this.headquarters + ", homepage=" + this.homepage + ", logoPath=" + this.logoPath + ", parentCompany=" + this.parentCompany + '}';
+  }
+}
+```
+
+This update ensures that your `Company` class now uses slf4j for logging. This is part of modernizing the logging framework, offering greater flexibility and easier management of loggers across different applications. Make sure your project includes the necessary slf4j libraries and any required implementation dependencies (like Logback or a slf4j-log4j bridge if maintaining compatibility with existing log4j configurations).

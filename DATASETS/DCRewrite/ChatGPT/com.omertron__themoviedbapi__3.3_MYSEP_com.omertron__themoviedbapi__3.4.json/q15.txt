@@ -1,0 +1,104 @@
+To migrate the provided Java class from using the log4j library to the slf4j library, you'll need to make some changes in the import statements and the way the logger is instantiated and used. Here's a step-by-step guide on how to do this, including the necessary code changes:
+
+### 1. Change Import Statements
+Firstly, replace the log4j import statement with the corresponding slf4j import. You need to import the Logger and LoggerFactory from the `org.slf4j` package.
+
+**Original:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**Modified:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Modify Logger Instantiation
+In slf4j, loggers are created using the `LoggerFactory` class rather than directly instantiating the Logger class.
+
+**Original:**
+```java
+private static final Logger logger = Logger.getLogger(TokenSession.class);
+```
+
+**Modified:**
+```java
+private static final Logger logger = LoggerFactory.getLogger(TokenSession.class);
+```
+
+### 3. Adjust Logging Method
+In slf4j, the logging methods (like `trace`, `debug`, `info`, `warn`, `error`) are used in the same way as in log4j, so no changes are required in how you call these methods unless you're using log level or formatting features that are different between log4j and slf4j.
+
+Here's the modified version of the entire class with these changes:
+
+```java
+package com.omertron.themoviedbapi.model;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class TokenSession {
+  private static final Logger logger = LoggerFactory.getLogger(TokenSession.class);
+  
+  @JsonProperty("session_id")
+  private String sessionId;
+  
+  @JsonProperty("success")
+  private Boolean success;
+  
+  @JsonProperty("status_code")
+  private String statusCode;
+  
+  @JsonProperty("status_message")
+  private String statusMessage;
+  
+  public String getSessionId() {
+    return this.sessionId;
+  }
+  
+  public Boolean getSuccess() {
+    return this.success;
+  }
+  
+  public String getStatusCode() {
+    return this.statusCode;
+  }
+  
+  public String getStatusMessage() {
+    return this.statusMessage;
+  }
+  
+  public void setSessionId(String sessionId) {
+    this.sessionId = sessionId;
+  }
+  
+  public void setSuccess(Boolean success) {
+    this.success = success;
+  }
+  
+  public void setStatusCode(String statusCode) {
+    this.statusCode = statusCode;
+  }
+  
+  public void setStatusMessage(String statusMessage) {
+    this.statusMessage = statusMessage;
+  }
+  
+  @JsonAnySetter
+  public void handleUnknown(String key, Object value) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Unknown property: '").append(key);
+    sb.append("' value: '").append(value).append("'");
+    logger.trace(sb.toString());
+  }
+  
+  public String toString() {
+    return "TokenSession{sessionId=" + this.sessionId + ", success=" + this.success + ", statusCode=" + this.statusCode + ", statusMessage=" + this.statusMessage + '}';
+  }
+}
+```
+
+With these modifications, your class will now use the slf4j library instead of log4j for logging. Ensure you have the slf4j library and any necessary binding libraries (like `slf4j-log4j12` if you want to bridge to log4j, or a direct implementation like `logback-classic`) included in your project dependencies.

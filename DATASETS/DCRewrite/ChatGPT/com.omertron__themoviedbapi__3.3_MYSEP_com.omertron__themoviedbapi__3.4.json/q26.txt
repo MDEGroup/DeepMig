@@ -1,0 +1,87 @@
+To transition the `TheMovieDbApi` class from using log4j to slf4j for logging, we'll implement similar steps to the earlier examples, focusing on updating the import statements and modifying the logger instantiation method.
+
+### 1. Update Import Statements
+Replace the log4j import with the slf4j import statements.
+
+**Original:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**Modified:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Modify Logger Instantiation
+Change how the logger is instantiated using `LoggerFactory`.
+
+**Original:**
+```java
+private static final Logger logger = Logger.getLogger(TheMovieDbApi.class);
+```
+
+**Modified:**
+```java
+private static final Logger logger = LoggerFactory.getLogger(TheMovieDbApi.class);
+```
+
+### Full Modified Class Code
+Here's the complete class code adapted to use slf4j. Note that due to the length of the class, I will highlight only the key changes and provide a snippet of the class showing the updated logger instantiation and usage:
+
+```java
+package com.omertron.themoviedbapi;
+
+// Import other necessary classes
+import com.fasterxml.jackson.databind.ObjectMapper;
+// Import all necessary models
+import com.omertron.themoviedbapi.model.*;
+// Import all necessary tools and wrappers
+import com.omertron.themoviedbapi.tools.*;
+import com.omertron.themoviedbapi.wrapper.*;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class TheMovieDbApi {
+  private static final Logger logger = LoggerFactory.getLogger(TheMovieDbApi.class);
+  
+  private String apiKey;
+  
+  private TmdbConfiguration tmdbConfig;
+  
+  // Other attributes and their initializations remain the same
+  
+  public TheMovieDbApi(String apiKey) throws MovieDbException {
+    this.apiKey = apiKey;
+    // Initialization code remains the same
+    try {
+      // Logging usage example
+      logger.debug("Attempting to fetch configuration from TMDB");
+      WrapperConfig wc = (WrapperConfig)mapper.readValue(webpage, WrapperConfig.class);
+      this.tmdbConfig = wc.getTmdbConfiguration();
+    } catch (IOException ex) {
+      logger.error("Failed to read configuration", ex);
+      throw new MovieDbException(MovieDbException.MovieDbExceptionType.MAPPING_FAILED, "Failed to read configuration", ex);
+    } 
+  }
+  
+  // Other methods and functionalities remain unchanged, with logger usage appropriately adjusted to use slf4j logging methods
+}
+```
+
+### Key Changes
+- **Logger Instantiation**: The logger instantiation is updated to use `LoggerFactory` from slf4j.
+- **Logging Usage**: All logging calls (such as `logger.warn`, `logger.debug`, etc.) remain syntactically the same but are now routed through slf4j.
+
+### Deployment Notes
+- **Dependencies**: Make sure that your project's dependencies include the slf4j API along with an appropriate implementation, such as Logback or a bridge to log4j if maintaining compatibility with existing log4j configurations.
+- **Configuration**: Depending on the chosen slf4j implementation, you may need to configure your logging via XML, properties files, or programmatically.
+
+This approach ensures that `TheMovieDbApi` class uses slf4j, promoting more flexible and efficient logging management across different environments and logging frameworks.

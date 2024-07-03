@@ -1,0 +1,166 @@
+To transition the `ApiUrl` class from using log4j to slf4j for logging, we'll repeat the steps similar to the earlier examples, focusing on updating the import statements and altering the logger instantiation method.
+
+### 1. Update Import Statements
+Replace the log4j import with the corresponding slf4j imports.
+
+**Original:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**Modified:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Modify Logger Instantiation
+Change how the logger is instantiated to use `LoggerFactory`.
+
+**Original:**
+```java
+private static final Logger logger = Logger.getLogger(ApiUrl.class);
+```
+
+**Modified:**
+```java
+private static final Logger logger = LoggerFactory.getLogger(ApiUrl.class);
+```
+
+### Full Modified Class Code
+Here's the complete class code adapted to use slf4j:
+
+```java
+package com.omertron.themoviedbapi.tools;
+
+import com.omertron.themoviedbapi.TheMovieDbApi;
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ApiUrl {
+  private static final Logger logger = LoggerFactory.getLogger(ApiUrl.class);
+  
+  private static final String TMDB_API_BASE = "http://api.themoviedb.org/3/";
+  
+  private static final String DELIMITER_FIRST = "?";
+  
+  private static final String DELIMITER_SUBSEQUENT = "&";
+  
+  private static final String DEFAULT_STRING = "";
+  
+  private TheMovieDbApi tmdb;
+  
+  private String method;
+  
+  private String submethod;
+  
+  private Map<String, String> arguments = new HashMap<String, String>();
+  
+  public static final String PARAM_ADULT = "include_adult=";
+  
+  public static final String PARAM_API_KEY = "api_key=";
+  
+  public static final String PARAM_COUNTRY = "country=";
+  
+  public static final String PARAM_FAVORITE = "favorite=";
+  
+  public static final String PARAM_ID = "id=";
+  
+  public static final String PARAM_LANGUAGE = "language=";
+  
+  public static final String PARAM_MOVIE_WATCHLIST = "movie_watchlist=";
+  
+  public static final String PARAM_PAGE = "page=";
+  
+  public static final String PARAM_QUERY = "query=";
+  
+  public static final String PARAM_SESSION = "session_id=";
+  
+  public static final String PARAM_TOKEN = "request_token=";
+  
+  public static final String PARAM_VALUE = "value=";
+  
+  public static final String PARAM_YEAR = "year=";
+  
+  public ApiUrl(TheMovieDbApi tmdb, String method) {
+    this.tmdb = tmdb;
+    this.method = method;
+    this.submethod = "";
+  }
+  
+  public ApiUrl(TheMovieDbApi tmdb, String method, String submethod) {
+    this.tmdb = tmdb;
+    this.method = method;
+    this.submethod = submethod;
+  }
+  
+  public URL buildUrl() {
+    StringBuilder urlString = new StringBuilder("http://api.themoviedb.org/3/");
+    urlString.append(this.method);
+    if (this.arguments.containsKey("query=")) {
+      urlString.append(this.submethod);
+      urlString.append("?").append("api_key=");
+      urlString.append(this.tmdb.getApiKey());
+      urlString.append("&");
+      urlString.append("query=");
+      String query = this.arguments.get("query=");
+      try {
+        urlString.append(URLEncoder.encode(query, "UTF-8"));
+      } catch (UnsupportedEncodingException ex) {
+        logger.trace("Unable to encode query: '" + query + "' trying raw.");
+        urlString.append(query);
+      } 
+      this.arguments.remove("query=");
+    } else {
+      if (this.arguments.containsKey("id=")) {
+        urlString.append(this.arguments.get("id="));
+        this.arguments.remove("id=");
+      } 
+      urlString.append(this.submethod);
+      urlString.append("?").append("api_key=");
+      urlString.append(this.tmdb.getApiKey());
+    } 
+    for (Map.Entry<String, String> argEntry : this.arguments.entrySet()) {
+      urlString.append("&").append(argEntry.getKey());
+      urlString.append(argEntry.getValue());
+    } 
+    try {
+      logger.trace("URL: " + urlString.toString());
+      return new URL(urlString.toString());
+    } catch (MalformedURLException ex) {
+      logger.warn("Failed to create URL " + urlString.toString() + " - " + ex.toString());
+      return null;
+    } finally {
+      this.arguments.clear();
+    } 
+  }
+  
+  public void addArgument(String key, String value) {
+    this.arguments.put(key, value);
+  }
+  
+  public void addArgument(String key, int value) {
+    this.arguments.put(key, Integer.toString(value));
+  }
+  
+  public void addArgument(String key, boolean value) {
+    this.arguments.put(key, Boolean.toString(value));
+  }
+  
+  public void clearArguments() {
+    this.arguments.clear();
+  }
+  
+  public void setArguments(Map<String, String> args) {
+    this.arguments.putAll(args);
+  }
+}
+```
+
+This updated code utilizes slf4j for logging, ensuring better flexibility and ease of maintenance for the logging system in your Java applications. Don't forget to include the slf4j library and an appropriate logging framework implementation in your project dependencies.

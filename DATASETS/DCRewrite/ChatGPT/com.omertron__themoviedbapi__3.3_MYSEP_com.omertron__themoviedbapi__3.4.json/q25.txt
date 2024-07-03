@@ -1,0 +1,73 @@
+To migrate the `FilteringLayout` class from using log4j to slf4j, we need to address the challenge of adapting a log4j-specific `PatternLayout` extension to slf4j. Since slf4j does not have a direct equivalent to log4j's layout classes (it relies on the underlying logging framework like logback for formatting), the most suitable approach would be to create a custom `Layout` using logback (or another slf4j compatible framework), assuming logback as the default backend.
+
+### Steps to Convert log4j PatternLayout to logback Layout
+
+1. **Switch from log4j to logback dependencies**: You need to remove log4j and include logback in your project dependencies.
+2. **Replace log4j imports with logback equivalents**: Use classes from logback that parallel those in log4j.
+3. **Create a custom logback layout**: Implement logback's `LayoutBase`.
+
+### Custom Logback Layout Example
+
+Here’s how you might create a custom logback layout equivalent to the `FilteringLayout` using logback:
+
+```java
+package com.omertron.themoviedbapi.tools;
+
+import ch.qos.logback.classic.PatternLayout;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.LayoutBase;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+public class FilteringLayout extends LayoutBase<ILoggingEvent> {
+    private static final String REPLACEMENT = "[APIKEY]";
+    private static Pattern replacementPattern = Pattern.compile("DO_NOT_MATCH");
+    private PatternLayout patternLayout;
+
+    public FilteringLayout() {
+        this.patternLayout = new PatternLayout();
+        this.patternLayout.setPattern("%date %-5level [%thread] %logger{35} - %msg%n");
+        this.patternLayout.start();
+    }
+
+    public static void addReplacementString(String replacementString) {
+        replacementPattern = Pattern.compile(replacementString);
+    }
+
+    @Override
+    public String doLayout(ILoggingEvent event) {
+        String message = event.getFormattedMessage();
+        Matcher matcher = replacementPattern.matcher(message);
+        if (matcher.find()) {
+            message = matcher.replaceAll(REPLACEMENT);
+        }
+        return this.patternLayout.doLayout(event);
+    }
+
+    @Override
+    public void start() {
+        if (this.patternLayout != null) {
+            super.start();
+        }
+    }
+
+    @Override
+    public void stop() {
+        if (this.patternLayout != null) {
+            this.patternLayout.stop();
+            super.stop();
+        }
+    }
+}
+```
+
+### Key Points
+- **PatternLayout**: The original class uses log4j’s `PatternLayout`, and logback also offers a `PatternLayout`, but customization is quite different.
+- **Replacing Pattern**: It modifies the pattern on the fly, which we maintain.
+- **Error Handling**: Original Java code does not handle exceptions in the pattern replacement. Ensure the new layout handles potential issues (e.g., regex processing errors).
+
+### Deployment
+- **Dependencies**: Ensure that logback is added to your project’s dependencies.
+- **Configuration**: Logback configuration might be in XML or programmatically set up in your application.
+
+This approach assumes you are using logback as the backend for slf4j. If another logging framework is used, adjustments would be necessary according to that specific framework’s capabilities and API.

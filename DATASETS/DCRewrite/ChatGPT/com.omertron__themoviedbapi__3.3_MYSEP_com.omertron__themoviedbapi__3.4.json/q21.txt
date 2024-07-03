@@ -1,0 +1,107 @@
+To transition the `AlternativeTitle` class from using log4j to slf4j for logging, similar modifications as previous classes will be applied, focusing on updating the import statements and altering the logger instantiation.
+
+### 1. Update Import Statements
+Replace the log4j import with the appropriate slf4j imports.
+
+**Original:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**Modified:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Modify Logger Instantiation
+Update how the logger is instantiated using `LoggerFactory` from slf4j.
+
+**Original:**
+```java
+private static final Logger logger = Logger.getLogger(AlternativeTitle.class);
+```
+
+**Modified:**
+```java
+private static final Logger logger = LoggerFactory.getLogger(AlternativeTitle.class);
+```
+
+### Full Modified Class Code
+Here's the complete class code with the slf4j adaptations:
+
+```java
+package com.omertron.themoviedbapi.model;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.io.Serializable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class AlternativeTitle implements Serializable {
+  private static final long serialVersionUID = 1L;
+  
+  private static final Logger logger = LoggerFactory.getLogger(AlternativeTitle.class);
+  
+  @JsonProperty("iso_3166_1")
+  private String country;
+  
+  @JsonProperty("title")
+  private String title;
+  
+  public String getCountry() {
+    return this.country;
+  }
+  
+  public String getTitle() {
+    return this.title;
+  }
+  
+  public void setCountry(String country) {
+    this.country = country;
+  }
+  
+  public void setTitle(String title) {
+    this.title = title;
+  }
+  
+  @JsonAnySetter
+  public void handleUnknown(String key, Object value) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Unknown property: '").append(key);
+    sb.append("' value: '").append(value).append("'");
+    logger.trace(sb.toString());
+  }
+  
+  public boolean equals(Object obj) {
+    if (obj == null)
+      return false; 
+    if (getClass() != obj.getClass())
+      return false; 
+    AlternativeTitle other = (AlternativeTitle)obj;
+    if ((this.country == null) ? (other.country != null) : !this.country.equals(other.country))
+      return false; 
+    if ((this.title == null) ? (other.title != null) : !this.title.equals(other.title))
+      return false; 
+    return true;
+  }
+  
+  public int hashCode() {
+    int hash = 7;
+    hash = 89 * hash + ((this.country != null) ? this.country.hashCode() : 0);
+    hash = 89 * hash + ((this.title != null) ? this.title.hashCode() : 0);
+    return hash;
+  }
+  
+  public String toString() {
+    StringBuilder sb = new StringBuilder("[AlternativeTitle=");
+    sb.append("[country=").append(this.country);
+    sb.append("],[title=").append(this.title);
+    sb.append("]]");
+    return sb.toString();
+  }
+}
+```
+
+This refactored code now utilizes slf4j for logging purposes. As with previous classes, ensure that your project contains the necessary slf4j libraries along with an appropriate logging framework implementation (like Logback or a bridge to an existing logging system like log4j if needed). This setup enhances flexibility and simplifies the maintenance of logging configurations across diverse environments.

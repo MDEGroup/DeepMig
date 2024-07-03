@@ -1,0 +1,109 @@
+To migrate the `Keyword` class from using the log4j library to the slf4j library, follow these steps:
+
+### 1. Update Import Statements
+First, replace the log4j import statement with the corresponding imports from the slf4j package.
+
+**Original:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**Modified:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Modify Logger Instantiation
+Change the way the logger is instantiated to use `LoggerFactory` from slf4j instead of `Logger` from log4j.
+
+**Original:**
+```java
+private static final Logger logger = Logger.getLogger(Keyword.class);
+```
+
+**Modified:**
+```java
+private static final Logger logger = LoggerFactory.getLogger(Keyword.class);
+```
+
+### Full Modified Class Code
+Here's the complete class with modifications to use slf4j:
+
+```java
+package com.omertron.themoviedbapi.model;
+
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonRootName;
+import java.io.Serializable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@JsonRootName("keyword")
+public class Keyword implements Serializable {
+  private static final long serialVersionUID = 1L;
+  
+  private static final Logger logger = LoggerFactory.getLogger(Keyword.class);
+  
+  @JsonProperty("id")
+  private int id;
+  
+  @JsonProperty("name")
+  private String name;
+  
+  public int getId() {
+    return this.id;
+  }
+  
+  public String getName() {
+    return this.name;
+  }
+  
+  public void setId(int id) {
+    this.id = id;
+  }
+  
+  public void setName(String name) {
+    this.name = name;
+  }
+  
+  @JsonAnySetter
+  public void handleUnknown(String key, Object value) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Unknown property: '").append(key);
+    sb.append("' value: '").append(value).append("'");
+    logger.trace(sb.toString());
+  }
+  
+  public boolean equals(Object obj) {
+    if (obj == null)
+      return false; 
+    if (getClass() != obj.getClass())
+      return false; 
+    Keyword other = (Keyword)obj;
+    if (this.id != other.id)
+      return false; 
+    if ((this.name == null) ? (other.name != null) : !this.name.equals(other.name))
+      return false; 
+    return true;
+  }
+  
+  public int hashCode() {
+    int hash = 3;
+    hash = 83 * hash + this.id;
+    hash = 83 * hash + ((this.name != null) ? this.name.hashCode() : 0);
+    return hash;
+  }
+  
+  public String toString() {
+    StringBuilder sb = new StringBuilder("[Keyword=");
+    sb.append("[id=").append(this.id);
+    sb.append("],[name=").append(this.name);
+    sb.append("]]");
+    return sb.toString();
+  }
+}
+```
+
+This update switches the logging functionality to slf4j, which is a more flexible and modern choice often recommended for new Java projects. Remember to include slf4j and its necessary implementation (like Logback or a log4j-to-slf4j bridge) in your project's dependencies.
