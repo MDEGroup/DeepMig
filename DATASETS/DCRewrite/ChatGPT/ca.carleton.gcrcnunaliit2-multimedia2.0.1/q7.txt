@@ -1,0 +1,46 @@
+To migrate the `FFmpegMediaInfoImpl` class from using the log4j library to slf4j, you'll need to adjust the import statements, modify how the logger is initialized, and update any logging methods used in the class. Here's a concise outline of the code changes required:
+
+### 1. Modify Import Statements
+Change the logger import from log4j to slf4j.
+
+**From:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**To:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Change Logger Initialization
+Switch the logger initialization to use `LoggerFactory` from slf4j.
+
+**From:**
+```java
+protected final Logger logger = Logger.getLogger(getClass());
+```
+
+**To:**
+```java
+protected final Logger logger = LoggerFactory.getLogger(getClass());
+```
+
+### 3. Update Logging Methods
+If there are any logging statements in the class, update them to use the slf4j syntax with `{}` placeholders for variable data.
+
+**If you have something like:**
+```java
+logger.error("Error while parsing FFmpeg info", e);
+```
+
+**Change it to:**
+```java
+logger.error("Error while parsing FFmpeg info", e);
+```
+
+This change retains the same message and exception logging, but it's always good to confirm that all variables are logged using slf4j placeholders for consistency and performance reasons.
+
+### Summary
+These changes will make the class compatible with slf4j, providing a more modern and flexible logging solution. Ensure to test the class after applying these changes to confirm that all functionalities work as expected without any runtime issues.

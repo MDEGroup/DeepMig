@@ -1,0 +1,85 @@
+To convert the `FFmpegProcessorDefault` class from using the log4j library to slf4j, you will need to modify the import statements, update the logger initialization, and ensure the logging statements conform to slf4j's usage patterns. Here’s a detailed step-by-step on how to make these modifications:
+
+### 1. Modify Import Statements
+Change from log4j to slf4j libraries.
+
+**Original:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**Modified:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Change Logger Initialization
+Switch from log4j’s Logger to slf4j’s LoggerFactory to initialize the logger.
+
+**Original:**
+```java
+protected static final Logger logger = Logger.getLogger(FFmpegProcessorDefault.class);
+```
+
+**Modified:**
+```java
+protected static final Logger logger = LoggerFactory.getLogger(FFmpegProcessorDefault.class);
+```
+
+### 3. Review and Update Logging Statements
+Slf4j supports the `{}` syntax for message formatting which is recommended to use instead of string concatenation.
+
+**Original:**
+```java
+logger.debug(command);
+```
+
+**Modified:**
+This line actually remains the same in terms of syntax, but make sure any error or information logging also uses `{}` for variables:
+
+**Example Conversion (if applicable):**
+```java
+logger.error("Error while parsing info on command: {}", command, e);
+```
+
+Here is the adapted class using slf4j:
+
+```java
+package ca.carleton.gcrc.olkit.multimedia.ffmpeg;
+
+import ca.carleton.gcrc.olkit.multimedia.converter.MultimediaConversionProgress;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class FFmpegProcessorDefault implements FFmpegProcessor {
+  protected static final Logger logger = LoggerFactory.getLogger(FFmpegProcessorDefault.class);
+  
+  private static Pattern patternTime = Pattern.compile("^\\s*frame=.*time=\\s*(\\d+\\.\\d*)");
+  
+  public static String ffmpegInfoCommand = "avprobe %1$s";
+  public static String ffmpegConvertVideoCommand = "avconv -i %1$s -y -acodec libfaac -ab 48000 -ac 2 -vcodec libx264 -b 128000 -s 320x240 -threads 0 -f mp4 %2$s";
+  public static String ffmpegConvertAudioCommand = "avconv -i %1$s -y -acodec libmp3lame -ab 48000 -ac 2 -threads 0 -f mp3 %2$s";
+  public static String ffmpegCreateThumbnailCommand = "avconv -y -ss 00:00:05 -i %1$s -s %3$dx%4$d -r 1 -vframes 1 -f image2 %2$s";
+  
+  private MultimediaConversionProgress progressTracker;
+  
+  public FFmpegProcessorDefault() {}
+  
+  public FFmpegProcessorDefault(MultimediaConversionProgress progressTracker) {
+    this.progressTracker = progressTracker;
+  }
+  
+  // Method implementations remain the same, assuming no additional logging statements to convert.
+  ...
+}
+```
+
+This class now correctly uses slf4j for its logging, enhancing its compatibility and maintainability. The modifications include the use of slf4j's LoggerFactory and more flexible and powerful message formatting capabilities.

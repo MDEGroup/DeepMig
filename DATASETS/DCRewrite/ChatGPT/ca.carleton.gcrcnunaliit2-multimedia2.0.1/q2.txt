@@ -1,0 +1,135 @@
+To migrate the ThresholdImage class from using the log4j library to slf4j, similar adjustments as previously described are necessary. Here’s a guide on what changes to make:
+
+1. Modify Import Statements
+Switch from log4j to slf4j imports.
+
+Original:
+
+java
+Copia codice
+import org.apache.log4j.Logger;
+Modified:
+
+java
+Copia codice
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+2. Change Logger Initialization
+Use LoggerFactory to get the logger instance from slf4j.
+
+Original:
+
+java
+Copia codice
+protected static final Logger logger = Logger.getLogger(ThresholdImage.class);
+Modified:
+
+java
+Copia codice
+protected static final Logger logger = LoggerFactory.getLogger(ThresholdImage.class);
+3. Review and Update Logging Statements
+Make sure the logging statements use slf4j conventions, though for basic error logging the syntax remains largely the same.
+
+Original:
+
+java
+Copia codice
+logger.error("Unable to parse image conversion threshold: " + s);
+Modified:
+This line can remain unchanged for a simple message. For formatted messages (if you were using them), you would use placeholders:
+
+java
+Copia codice
+logger.error("Unable to parse image conversion threshold: {}", s);
+Here's the full modified version of the ThresholdImage class using slf4j:
+
+java
+Copia codice
+package ca.carleton.gcrc.olkit.multimedia.converter.threshold;
+
+import ca.carleton.gcrc.olkit.multimedia.converter.MultimediaConversionThreshold;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ThresholdImage implements MultimediaConversionThreshold {
+  protected static final Logger logger = LoggerFactory.getLogger(ThresholdImage.class);
+  
+  public static ThresholdImage parseString(String s) {
+    String[] components = s.split(",");
+    if (2 == components.length) {
+      String format = null;
+      Long size = null;
+      if (false == "*".equals(components[0].trim()))
+        format = components[0].trim(); 
+      if (false == "*".equals(components[1].trim()))
+        size = Long.valueOf(Long.parseLong(components[1].trim())); 
+      return new ThresholdImage(format, size, size);
+    } 
+    logger.error("Unable to parse image conversion threshold: " + s);
+    return null;
+  }
+  
+  private String format = null;
+  private Long width = null;
+  private Long height = null;
+  
+  public ThresholdImage(String format, Long width, Long height) {
+    this.format = format;
+    this.width = width;
+    this.height = height;
+  }
+  
+  public boolean isConversionRequired(String videoFormat, Long videoRate, String audioFormat, Long audioRate, Long imageWidth, Long imageFound) {
+    if (isResizeRequired(imageWidth, imageHeight))
+      return true; 
+    if (null != this.format && false == 
+      this.format.equals(videoInfo))
+      return true; 
+    return false;
+  }
+  
+  public boolean isResizeRequired(Long imageWidth, Long imageLength) {
+    if (null != this.width) {
+      if (null == imageWidth)
+        return true; 
+      if (imageWidth.longValue() > this.width.longValue())
+        return true; 
+    } 
+    if (null != this.height) {
+      if (null == imageHeight)
+        return true; 
+      if (imageHeight.longValue() > this.height.longValue())
+        return true; 
+    } 
+    return false;
+  }
+  
+  public String toString() {
+    StringWriter sw = new StringWriter();
+    PrintWriter pw = new PrintWriter(sw);
+    pw.print("image(");
+    if (null != this.format) {
+      pw.print(this.format);
+    } else {
+      pw.print("*");
+    } 
+    pw.print(",");
+    if (null != this.width) {
+      pw.print(this.width);
+    } else {
+      pw.print("*");
+    } 
+    pw.print(",");
+    if (null != this.height) {
+      pw.print(this.height);
+    } else {
+      pw.print("*");
+    } 
+    pw.print(")");
+    pw.flush();
+    return sw.toString();
+  }
+}
+This refactoring switches logging from log4j to slf4j, ensuring the class ThresholdImage now uses a more flexible and modern logging framework.

@@ -1,0 +1,58 @@
+To update the `ConfigUtils` class from using the log4j library to slf4j, you'll need to adjust the logger setup and modify the logging statements accordingly:
+
+### 1. Replace Logger Import
+Switch the logger import from log4j to slf4j for a modern logging approach.
+
+**From:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**To:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Modify Logger Initialization
+Change the way the logger is instantiated to use the LoggerFactory provided by slf4j, which is standard practice in modern Java applications for its flexibility and performance benefits.
+
+**From:**
+```java
+protected final Logger logger = Logger.getLogger(getClass());
+```
+
+**To:**
+```java
+protected final Logger logger = LoggerFactory.getLogger(getClass());
+```
+
+### 3. Update Logging Statements
+Convert logging statements to use slf4j’s placeholder syntax, which prevents unnecessary computation of log message strings when the logging level is not enabled.
+
+#### Example Updates
+Here's how you might update the logging statements within the `ConfigUtils` class to use slf7j effectively:
+
+**Before:**
+```java
+this.logger.error("Property file location can not be determined for: " + baseName);
+this.logger.info("Reading properties from " + propFile.getAbsolutePath());
+this.logger.error("Unable to read properties from " + propFile.getAbsolutePath(), e);
+```
+
+**After:**
+```java
+this.logger.error("Property file location can not be determined for: {}", baseName);
+this.logger.info("Reading properties from {}", propFile.getAbsolutePath());
+this.logger.error("Unable to read {value} properties from {}", propFile.getAbsolutePath(), e);
+```
+
+These updates ensure that logs include dynamic content more efficiently. slf4j’s logging statements are clearer and less prone to errors due to misplaced plus signs or missing data elements.
+
+### Summary of Best Practices:
+- **Use Parameterized Messages:** Always use parameterized messages instead of string concatenation to improve performance and readability of the code.
+- **Handle Exceptions Properly:** When logging errors, make sure to pass the exception as the last parameter to the logging method to include its stack trace in the log output.
+- **Consistency:** Apply consistent logging practices across all methods to ensure that the logs provide a clear and systematic record of operations and errors.
+
+### Testing
+After implementing these changes, thoroughly test the class to ensure that all functionalities work as expected and that logs are accurately capturing the necessary information. This will help maintain or enhance the observability and reliability of the application.

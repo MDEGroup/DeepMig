@@ -1,0 +1,74 @@
+To update the `SearchServlet` class from using the log4j library to slf4j, you'll need to adapt the logging initialization and usage pattern, as per the modern best practices for Java logging. Here’s how to modify the class:
+
+### 1. Replace Logger Import
+Change the logger import from log4j to slf4j.
+
+**From:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**To:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Modify Logger Initialization
+Update how the logger is instantiated to use `LoggerFactory` from slf4j, which is typically used across modern Java applications for better performance and flexibility.
+
+**From:**
+```java
+protected final Logger logger = Logger.getLogger(getClass());
+```
+
+**To:**
+```java
+protected final Logger logger = LoggerFactory.getLogger(getClass());
+```
+
+### 3. Update Logging Calls
+Change any existing logging calls to use slf4j’s parameterized messages, which avoids string concatenation unless the log level is actually enabled, thus improving performance.
+
+**Before:**
+```java
+this.logger.info(getClass().getName() + " " + path);
+```
+
+**After:**
+```java
+this.logger.info("{} {}", getClass().getName(), path);
+```
+
+### Example Updates Within Methods
+For methods that handle errors or specific processes, use slf4j's structured logging to provide better context and readability.
+
+**Before:**
+```java
+this.logger.error("Error while performing search", e);
+```
+
+**After:**
+```java
+this.logger.error("Error while performing search", e);
+```
+
+When logging exceptions, the exception should be passed as the last parameter to the logging method to include its stack trace in the log. No string concatenation is needed.
+
+### Sending JSON and Error Responses
+For methods like `sendJsonResponse` and `sendErrorResponse`, ensure that the logging statements are properly converted as well. 
+
+**Before:**
+```java
+this.logger.info("getHoverMedia id:" + ids[0]);
+```
+
+**After:**
+```java
+this.logger.info("getHoverMedia id: {}", ids[0]);
+```
+
+### Summary
+By adopting slf4j, the servlet not only uses a more robust and widely-adopted logging framework but also benefits from performance optimizations due to deferred computation of the log message. Furthermore, slf4j provides better integration with various logging backends, allowing more flexibility in log management.
+
+Finally, ensure all functionalities and logging are thoroughly tested after these changes to confirm that everything works as expected and logs are correctly formatted and informative. This will help maintain or even improve the observability of the application.

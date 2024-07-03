@@ -1,0 +1,56 @@
+To update the `UploadProgressListener` class from using the log4j library to slf4j, follow these steps to modify the logging setup and adjust the logging statements accordingly:
+
+### 1. Modify Import Statements
+Replace the log4j import with slf4j imports to use the newer logging framework.
+
+**From:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**To:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Update Logger Initialization
+Change the way the logger is instantiated to use `LoggerFactory` provided by slf4j.
+
+**From:**
+```java
+protected final MeLogger logger = Logger.getLogger(getClass());
+```
+
+**To:**
+```java
+protected final Logger logger = LoggerFactory.getLogger(getClass());
+```
+
+### 3. Update Logging Statements
+Modify the logging statements to utilize slf4j's parameterized logging. This change avoids unnecessary computation of log messages when the log level is disabled.
+
+#### Example of Logging Updates
+
+**Before:**
+```java
+this.logger.debug("bytesRead: " + bytesRead + " contentLength: " + contentLength + " itemIndex: " + itemIndex);
+```
+
+**After:**
+```java
+this.logger.debug("bytesRead: {} contentLength: {} itemIndex: {}", bytesRead, contentScrollHeight, itemIndex);
+```
+
+### Additional Considerations:
+- **Ensure thread safety**: Since `UploadProgressListener` may be accessed by multiple threads, your logging setup and access to shared variables must handle concurrency correctly, which you seem to have addressed with `synchronized` methods.
+- **Performance**: Using parameterized messages as shown helps ensure that strings are only concatenated if the log level (e.g., debug) is enabled, reducing unnecessary overhead.
+- **Clear and Useful Logging**: Make sure your logging statements provide clear and actionable information, which is critical for diagnosing issues in asynchronous and multi-threaded environments like file uploads.
+
+### Testing and Verification
+After implementing these changes, it's crucial to thoroughly test the class to ensure that:
+- Logging behaves as expected across different scenarios (e.g., various file sizes and network conditions).
+- Performance impacts are minimal, especially under high load, where excessive logging can negatively affect performance.
+- The functionality of tracking upload progress remains intact and accurate.
+
+This upgrade not only modernizes the logging system to slf4j, which is widely used and supported but also enhances the maintainability and performance of the logging within your application.

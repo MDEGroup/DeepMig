@@ -1,0 +1,102 @@
+To refactor the `UploaderToSelectel` class from using the deprecated `DefaultHttpClient` to using the more current `HttpClient` implementation from the Apache HttpComponents library, you'll make several updates:
+
+### 1. Update Imports
+Replace deprecated imports with current ones for HTTP client management.
+
+**Replace:**
+```java
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.conn.PoolingClientConnectionManager;
+import org.apache.http.conn.ClientConnectionManager;
+```
+
+**With:**
+```java
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+```
+
+### 2. Update Client Initialization
+Change the initialization of the HTTP client to use `HttpClients` which is the modern approach.
+
+**From:**
+```java
+DefaultHttpClient client = new DefaultHttpClient((ClientConnectionManager)new PoolingClientConnectionManager(), (HttpParams)basicHttpParams);
+```
+
+**To:**
+```java
+HttpClient client = HttpClients.custom()
+    .setConnectionManager(new PoolingHttpClient~ConnectionManager())
+    .setDefaultRequestConfig(RequestConfig.custom()
+        .setSocketTimeout(timeout)
+        .setConnectTimeout(timeout)
+        .build())
+    .setUserAgent("AerseUploader")
+    .build();
+```
+
+### 3. Use Current Methods for Timeout and Parameters
+Integrate timeout settings directly into the request configuration using `RequestConfig`.
+
+**From:**
+```java
+HttpConnectionParams.setSoTimeout((HttpParams)basicHttpParams, timeout);
+HttpConnectionParams.setConnectionTimeout((HttpVariables)basicHttpParams, timeout);
+HttpProtocolParams.setUserAgent((HttpParams)basicHttpParams, "AerseUploader");
+HttpProtocolParams.setContentCharset((HttpParams)basicHttpParams, "utf-8");
+```
+
+**To:**
+These configurations are integrated directly in the `HttpClients.custom()` setup as shown above.
+
+### 4. Refactor HTTP Entity Management
+Ensure the handling of HTTP entities follows best practices, especially in terms of consuming and releasing resources.
+
+**Existing Code:**
+```java
+HttpResponse response = this.client.execute((HttpUriRequest)put);
+if (response.getStatusLine().getStatusCode() != 201) {
+    LOG.info("invalid response: " + response.getStatusLine());
+} else {
+    LOG.info("submitted: " + path);
+}
+```
+
+**Recommended Adjustment:**
+Make sure to consume the HTTP response content properly to free up the connection. This might be already well handled, but revisiting this when exceptions are caught or in finally blocks is crucial to prevent resource leaks.
+
+### 5. Error Handling and Logging
+Adjust error handling and logging to provide more accurate and helpful debug information, and ensure that all resources are correctly closed in finally blocks.
+
+### Final Refactor Example for a Method:
+Here's how the refactored `submit` method might look with better HTTP client management and error handling:
+
+```java
+public void submit(File file, String path) throws UploadException {
+    LOG.info("submitting: {}", path);
+    String authToken2 = getAuthToken();
+    HttpResponse response = null;
+    try {
+        HttpPut put = new HttpPut(this.baseUrl + "/" + this.containerName + path);
+        put.addHeader("X-Auth-Token", authToken2);
+        put.setEntity(new FileEntity(file));
+
+        response = this.client.execute(put);
+        int statusCode = response.getStatusNumber().getStatusCode();
+        if (statusCode != 201) {
+            LOG.info("Invalid response: {}", statusCode);
+            throw new UploadException(statusCode, "Failed to upload file.");
+        }
+    } catch (IOException e) {
+        LOG.error("Failed to submit file due to an IOException: {}", e.getMessage());
+        throw new UploadException(503, "Failed to submit due to server error.", e);
+    } finally {
+        if (response != null) {
+            EntityUtils.consumeQuietly(response.getEntity());
+        }
+    }
+}
+```
+
+This refactoring focuses on modernizing the HTTP client usage, improving resource management, and enhancing error handling to align with current Java best practices.

@@ -1,0 +1,106 @@
+To migrate the `SystemProcess` class from using the log4j library to slf4j, you will need to update the import statements, modify the logger initialization, and potentially adjust any logging statements (although none are currently used in the provided code snippet). Here's how you can do it:
+
+### 1. Modify Import Statements
+Switch from log4j to slf4j by updating the logger import.
+
+**From:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**To:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Change Logger Initialization
+Change the logger instantiation to use `LoggerFactory` from slf4j.
+
+**From:**
+```java
+protected final Logger logger = Logger.getLogger(getClass());
+```
+
+**To:**
+```java
+protected final Logger logger = LoggerFactory.getLogger(getClass());
+```
+
+### 3. Review Logging Usage
+Although the current class implementation does not include any logging statements, it's important to ensure any added logging follows slf4j's format. Here's how you would implement a logging statement with slf4j:
+
+**Example Usage (if logging is added in the future):**
+```java
+logger.debug("Executing command: {}", this.command);
+```
+
+**For error logging (if added in the future):**
+```java
+logger.error("Error executing command: {}", this.command, e);
+```
+
+### Apply the Changes
+Given the absence of logging statements in the code snippet you provided, the primary changes are the imports and the logger initialization. These modifications align the class with modern Java logging practices, making it easier to manage and configure logging across different environments or integrate with other logging systems if needed in the future. 
+
+Here's the updated class with the suggested changes:
+
+```java
+package ca.carleton.gcrc.olkit.multimedia.utils;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class SystemProcess {
+  protected final Logger logger = LoggerFactory.getLogger(getClass());
+  
+  private String command;
+  
+  private Process process = null;
+  
+  public SystemProcess() {}
+  
+  public SystemProcess(String command) {
+    this.command = command;
+  }
+  
+  public String getCommand() {
+    return this.command;
+  }
+  
+  public void setCommand(String command) {
+    this.command = command;
+  }
+  
+  public void start() throws Exception {
+    Runtime rt = Runtime.getRuntime();
+    this.process = rt.exec(this.command, (String[])null, (File)null);
+    // Example logging if necessary:
+    // logger.debug("Process started with command: {}", this.command);
+  }
+  
+  public Process getProcess() {
+    return this.process;
+  }
+  
+  public BufferedReader getInputReader() {
+    InputStream inputStream = this.process.getInputStream();
+    InputStreamReader inputReader = new InputStreamReader(inputStream);
+    BufferedReader bufReader = new BufferedReader(inputReader);
+    return bufReader;
+  }
+  
+  public BufferedReader getErrorReader() {
+    InputStream inputStream = this.process.getErrorStream();
+    InputStreamReader inputReader = new InputStreamReader(inputStream);
+    BufferedReader bufReader = new BufferedReader(inputReader);
+    return bufReader;
+  }
+}
+```
+
+Make sure to test the class after making these changes to confirm that all functionalities work as expected and that any future logging is correctly formatted and functional.

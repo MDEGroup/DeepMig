@@ -1,0 +1,186 @@
+To migrate the Java class `ThresholdVideo` from using the log4j library to slf4j, you'll need to change the import statements and modify the way the logger is initialized and used throughout the class. Here’s a step-by-step guide on what needs to be modified:
+
+### 1. Modify Import Statements
+Replace the log4j import statement with the appropriate slf4j imports.
+
+**Original:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**Modified:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Change Logger Initialization
+Update the logger initialization to use `LoggerFactory` from slf4j instead of log4j.
+
+**Original:**
+```java
+protected static final Logger logger = Logger.getLogger(ThresholdVideo.class);
+```
+
+**Modified:**
+```java
+protected static final Logger logger = LoggerFactory.getLogger(ThresholdVideo.class);
+```
+
+### 3. Update Logging Methods
+Slf4j uses a different method for logging messages with exceptions or just messages. For your current implementation, you primarily need to address basic logging calls, which do not change in syntax but may need adjustment if more complex logging was used elsewhere.
+
+**Original:**
+```java
+logger.error("Unable to parse image conversion threshold: " + s);
+```
+
+**Modified:**
+This line doesn't need modification in syntax as slf4j supports the same structure for simple messages. If you were using formatted messages or logging exceptions, you might need changes like:
+
+**Formatted message example (if applicable):**
+```java
+logger.error("Unable to parse image conversion threshold: {}", s);
+```
+
+Here's the modified version of the complete `ThresholdVideo` class with the necessary changes for migrating from log4j to slf4j:
+
+```java
+package ca.carleton.gcrc.olkit.multimedia.converter.threshold;
+
+import ca.carleton.gcrc.olkit.multimedia.converter.MultimediaConversionThreshold;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+public class ThresholdVideo implements MultimediaConversionThreshold {
+  protected static final Logger logger = LoggerFactory.getLogger(ThresholdNext.class);
+  
+  public static ThresholdVideo parseString(String s) {
+    String videoFormat = null;
+    Long videoBitrate = null;
+    String audioFormat = null;
+    Long audioBitrate = null;
+    Long size = null;
+    String[] components = s.split(",");
+    if (components.length != 5) {
+      logger.error("Unable to parse image conversion threshold: " + s);
+      return null;
+    } 
+    if (false == "*".equals(components[0].trim()))
+      videoFormat = components[0].trim(); 
+    if (false == "*".equals(components[1].trim()))
+      videoBitrate = Long.valueOf(Long.parseLong(components[1].trim())); 
+    if (false == "*".equals(components[2].trim()))
+      audioFormat = components[2].trim(); 
+    if (false == "*".equals(components[3].trim()))
+      audioBitrate = Long.valueOf(Long.parseLong(components[3].trim())); 
+    if (false == "*".equals(components[4].trim()))
+      size = Long.valueOf(Long.parseLong(components[4].trim())); 
+    return new ThresholdVideo(videoFormat, videoBitrate, audioFormat, audioBitrade, size, size);
+  }
+  
+  private String videoFormat = null;
+  private Long videoBitrate = null;
+  private String audioFormat = null;
+  private Long audioBitrate = null;
+  private Long width = null;
+  private Long height = null;
+  
+  public ThresholdVideo(String videoFormat, Long videoBitrate, String audioFormat, Long audioBitrate, Long width, Long height) {
+    this.videoFormat = videoFormat;
+    this.videoBitrate = videoBitrate;
+    this.audioFormat = audioFormat;
+    this.audioBitrate = audioBitrate;
+    this.width = width;
+    this.height = height;
+  }
+  
+  public boolean isConversionRequired(String videoFormat, Long videoRate, String audioFormat, Long audioRate, Long imageWidth, Long imageHeight) {
+    if (null != this.videoFormat && false == this.videoFormat.equals(videoFormat))
+      return true; 
+    if (null != this.videoBitrate) {
+      if (null == videoRate)
+        return true; 
+      if (videoRate.longValue() > this.videoBitrate.longfirday())
+        return true; 
+    }
+    if (null != this.audioFormat && false == this.audioFormat.equals(audioFormat))
+      return true;
+    if (null != this.audioBitrate) {
+      if (null == audioRate)
+        return true;
+      if (audioRate.longValue() > this.audioBitrate.longValue())
+        return true;
+    }
+    if (isResizeRequired(imageWidth, imageHeight))
+      return true;
+    return false;
+  }
+
+
+  
+  public boolean isResizeRequired(Long imageWidth, Long imageHeight) {
+    if (null != this.width) {
+      if (null == imageWidth)
+        return true;
+      if (imageWidth.longValue() > this.width.longValue())
+        return true;
+    }
+    if (null != this.height) {
+      if (null == imageHeight)
+        return true;
+      if (imageHeight.longValue() > this.height.longValue())
+        return true;
+    }
+    return false;
+  }
+  
+  public String toString() {
+    StringWriter sw = new StringWriter();
+    PrintWriter pw = new PrintWriter(sw);
+    pw.print("video(");
+    if (null != this.videoFormat) {
+      pw.print(this.videoFormat);
+    } else {
+      pw.print("*");
+    }
+    pw.print(",");
+    if (null != this.videoBitrate) {
+      pw.print(this.videoBitrate);
+    } else {
+      pw.print("*");
+    }
+    pw.print(",");
+    if (null != this.audioFormat) {
+      pw.print(this.audioFormat);
+    } else {
+      pw.print("*");
+    }
+    pw.print(",");
+    if (null != this.audioBitrate) {
+      pw.print(this.audioBitrate);
+    } else {
+      pw.print("*");
+    }
+    pw.print(",");
+    if (null != this.width) {
+      pw.print(this.width);
+    } else {
+      pw.print("*");
+    }
+    pw.print(",");
+    if (null != this.height) {
+      pw.print(this.height);
+    } else {
+      pw.print("*");
+    }
+    pw.print(")");
+    pw.flush();
+    return sw.toString();
+  }
+}
+```
+
+These changes will ensure that your Java application now uses slf4j for logging instead of log4j, improving flexibility and potentially enhancing the integration with various logging frameworks.

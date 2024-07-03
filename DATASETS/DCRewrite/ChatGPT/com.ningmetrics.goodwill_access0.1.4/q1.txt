@@ -1,0 +1,73 @@
+To refactor the `Accessor` class from using the `org.apache.log4j.Logger` to the SLF4J logging facade (`org.slf4j.Logger`), follow these key changes:
+
+### 1. Update Imports
+
+First, change the imports to use SLF4J instead of Log4j.
+
+**Replace:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**With:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Update Logger Initialization
+
+Modify how the logger is initialized to utilize the `LoggerFactory` provided by SLF4J.
+
+**From:**
+```java
+protected static final Logger log = Logger.getLogger(Accessor.class);
+```
+
+**To:**
+```java
+protected static final Logger log = LoggerFactory.getLogger(Accessor.class);
+```
+
+### Updated Class with SLF4J
+
+Here’s how the `Accessor` class would look after refactoring to use SLF4J:
+
+```java
+package com.ning.metrics.goodwill.access;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+abstract class Accessor {
+  protected static final Logger log = LoggerFactory.getLogger(Accessor.class);
+  
+  protected final String host;
+  protected final int port;
+  protected String url;
+  
+  Accessor(String host, int port) {
+    this.host = host;
+    this.port = port;
+    this.url = String.format("http://%s:%d/registrar", host, port);
+  }
+}
+```
+
+### Additional Notes
+
+1. **Parameterized Logging**: If you have logging statements within your methods that construct strings, consider changing them to use SLF4J’s parameterized logging to improve performance and readability. For example:
+
+   **From:**
+   ```java
+   log.info("Connecting to host: " + host + " at port: " + port);
+   ```
+
+   **To:**
+   ```java
+   log.info("Connecting to host: {} at port: {}", host, port);
+   ```
+
+2. **Exception Logging**: SLF4J simplifies the logging of exceptions by allowing you to pass the exception instance as the last parameter to any logging method.
+
+By making these changes, you effectively refactor the logging in your `Accessor` class from Log4j to SLF4J, aligning with modern logging practices and making the class more adaptable to different logging frameworks backend.
