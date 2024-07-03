@@ -1,0 +1,93 @@
+To update the `CountInterceptor` class from using Apache Log4j to SLF4J, follow the same approach as previous examples:
+
+### 1. Modify the Imports
+Change the logging-related imports to use SLF4J classes.
+
+**From:**
+```java
+import org.apache.log4j.Logger;
+```
+
+**To:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+```
+
+### 2. Update the Logger Instantiation
+Update the logger instantiation to use the `LoggerFactory` provided by SLF4J.
+
+**From:**
+```java
+private Logger log = Logger.getLogger(CountInterceptor.class);
+```
+
+**To:**
+```java
+private Logger log = LoggerFactory.getLogger(CountInterceptor.class);
+```
+
+### Example of the Updated Class with SLF4J:
+```java
+package net.anotheria.moskito.integration.cdi;
+
+import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import javax.inject.Singleton;
+import javax.interceptor.AroundInvoke;
+import javax.interceptor.Interceptor;
+import javax.interceptor.InvocationContext;
+import net.anotheria.moskito.core.counter.CounterStats;
+import net.anotheria.moskito.core.counter.CounterStatsFactory;
+import net.anotheria.moskito.core.dynamic.IOnDemandStatsFactory;
+import net.anotheria.moskito.core.dynamic.OnDemandStatsProducer;
+import net.anotheria.moskito.core.dynamic.OnDemandStatsProducerException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@Interceptor
+@Singleton
+@Count
+public class CountInterceptor extends BaseInterceptor<CounterStats> implements Serializable {
+  private static final long serialVersionUID = 1L;
+  
+  private Logger log = LoggerFactory.getLogger(CountInterceptor.class);
+  
+  @AroundInvoke
+  public Object aroundInvoke(InvocationContext ctx) throws Throwable {
+    ProducerRuntimeDefinition prd = extractProducerDefinition(ctx);
+    OnDemandStatsProducer<CounterStats> onDemandProducer = getProducer(prd);
+    CounterStats defaultStats = onDemandProducer.getDefaultStats();
+    CounterStats methodStats = null;
+    String caseName = extractCaseName(ctx);
+    try {
+      if (caseName != null)
+        methodStats = onDemandProducer.getStats(caseName);
+    } catch (OnDemandStatsProducerException e) {
+      log.info("Couldn't get stats for case: {}, probably limit reached", caseName);
+    }
+    Object[] args = ctx.getParameters();
+    Method method = ctx.getMethod();
+    defaultStats.inc();
+    if (methodStats != null)
+      methodStats.inc();
+    Object ret = null;
+    try {
+      ret = ctx.proceed();
+      return ret;
+    } catch (InvocationTargetException e) {
+      throw e.getCause();
+    }
+  }
+  
+  protected IOnDemandStatsFactory getFactory() {
+    return CounterStatsFactory.DEFAULT_INSTANCE;
+  }
+  
+  protected String getCategory() {
+    return "counter";
+  }
+}
+```
+This version of the class now uses SLF4J for its logging statements. Make sure that your project's dependencies are updated to include SLF4J and that any old Log4j dependencies are removed or replaced as needed.
